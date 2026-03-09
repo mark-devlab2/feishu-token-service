@@ -2,6 +2,9 @@ FROM node:22-alpine AS build
 
 WORKDIR /app
 
+COPY package.json package-lock.json ./
+RUN npm install
+
 COPY apps/admin-shell/package.json ./apps/admin-shell/package.json
 RUN mkdir -p apps/admin-shell
 
