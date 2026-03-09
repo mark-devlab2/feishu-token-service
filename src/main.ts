@@ -5,6 +5,7 @@ import hbs from 'hbs';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { AdminAuthService } from './admin/admin-auth.service';
 
 async function bootstrap() {
   const app: any = await NestFactory.create(AppModule);
@@ -31,6 +32,7 @@ async function bootstrap() {
   app.setViewEngine('hbs');
   hbs.registerHelper('eq', (left: unknown, right: unknown) => left === right);
 
+  await app.get(AdminAuthService).ensureDefaultAdmin();
   await app.listen(Number(process.env.PORT || 3080));
 }
 
