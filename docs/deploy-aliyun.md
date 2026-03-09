@@ -58,10 +58,20 @@ OpenClaw 侧应调用：
 - `POST /auth/feishu/link`
 - `GET /tokens/feishu/resolve?user_open_id=...`
 
-如果服务与 OpenClaw 跑在同一台阿里云主机，推荐先用：
+当前推荐结构：
+
+- `api` 仅绑定 `127.0.0.1:3080`
+- `Caddy` 监听 `80/443`
+- `Caddy` 自动申请与续期 `token.himark.me` 的 Let's Encrypt 证书
+
+OpenClaw 对外访问推荐使用：
 
 ```text
-http://127.0.0.1
+https://token.himark.me
 ```
 
-如果浏览器授权回调需要公网访问，再通过反向代理暴露 callback 路径。
+服务内部自检仍使用：
+
+```text
+http://127.0.0.1:3080
+```

@@ -2,13 +2,26 @@ services:
   api:
     build: .
     ports:
-      - "${API_PUBLIC_PORT:-3080}:3080"
+      - "${API_PUBLISH:-3080:3080}"
     env_file:
       - .env
     depends_on:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_started
+
+  caddy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      api:
         condition: service_started
 
   postgres:
@@ -38,3 +51,5 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  caddy_data:
+  caddy_config:
