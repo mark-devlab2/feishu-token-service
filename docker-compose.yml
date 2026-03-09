@@ -11,6 +11,14 @@ services:
       redis:
         condition: service_started
 
+  admin-web:
+    build:
+      context: .
+      dockerfile: apps/admin-web.Dockerfile
+    depends_on:
+      api:
+        condition: service_started
+
   caddy:
     image: caddy:2
     ports:
@@ -22,6 +30,8 @@ services:
       - caddy_config:/config
     depends_on:
       api:
+        condition: service_started
+      admin-web:
         condition: service_started
 
   postgres:

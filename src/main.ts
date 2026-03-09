@@ -1,7 +1,6 @@
 import 'reflect-metadata';
 import path from 'node:path';
 import cookieParser from 'cookie-parser';
-import basicAuth from 'express-basic-auth';
 import hbs from 'hbs';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -12,15 +11,21 @@ async function bootstrap() {
 
   app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
   app.use(cookieParser());
-  app.use(
-    '/admin',
-    basicAuth({
-      challenge: true,
-      users: {
-        [process.env.ADMIN_USERNAME || 'admin']: process.env.ADMIN_PASSWORD || 'change-me',
-      },
-    }),
-  );
+  app.enableCors({
+    origin: (origin: string | undefined, callback: (error: Error | null, allow?: boolean) => void) => {
+      const allowedOrigins = (process.env.ADMIN_WEB_ORIGINS || 'http://localhost:5173,https://admin.himark.me')
+        .split(',')
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+      callback(new Error('CORS origin not allowed'));
+    },
+    credentials: true,
+  });
 
   app.setBaseViewsDir(path.join(process.cwd(), 'views'));
   app.setViewEngine('hbs');

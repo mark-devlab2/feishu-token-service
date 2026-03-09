@@ -1,0 +1,29 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "useDefineForClassFields": true,
+    "lib": ["DOM", "DOM.Iterable", "ES2022"],
+    "allowJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": false,
+    "jsx": "react-jsx",
+    "baseUrl": ".",
+    "paths": {
+      "@config/*": ["../../packages/config/src/*"],
+      "@config": ["../../packages/config/src/index.ts"],
+      "@ui/*": ["../../packages/ui/src/*"],
+      "@ui": ["../../packages/ui/src/index.ts"],
+      "@auth-center/*": ["../auth-center-app/src/*"],
+      "@auth-center": ["../auth-center-app/src/index.tsx"]
+    }
+  },
+  "include": ["src", "../../packages/ui/src", "../../packages/config/src", "../auth-center-app/src"]
+}

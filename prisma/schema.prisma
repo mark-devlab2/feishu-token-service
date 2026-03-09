@@ -52,6 +52,11 @@ enum AlertStatus {
   resolved
 }
 
+enum AdminAccountStatus {
+  active
+  disabled
+}
+
 model User {
   id                     String                  @id @default(cuid())
   username               String                  @unique
@@ -124,6 +129,28 @@ model PlatformAuthorization {
   @@unique([providerId, authKind, accountKey])
   @@index([providerId, authKind, userId])
   @@index([status, expiresAt])
+}
+
+model AdminAccount {
+  id           String             @id @default(cuid())
+  username     String             @unique
+  passwordHash String
+  status       AdminAccountStatus @default(active)
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+  sessions     AdminSession[]
+}
+
+model AdminSession {
+  id             String       @id @default(cuid())
+  adminAccountId String
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  lastSeenAt     DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  adminAccount   AdminAccount @relation(fields: [adminAccountId], references: [id], onDelete: Cascade)
+
+  @@index([adminAccountId, expiresAt])
 }
 
 model AuthEvent {
