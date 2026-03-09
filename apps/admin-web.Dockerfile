@@ -12,6 +12,7 @@ WORKDIR /app
 COPY apps/admin-shell ./apps/admin-shell
 COPY apps/auth-center-app ./apps/auth-center-app
 COPY packages/ui ./packages/ui
+COPY packages/config ./packages/config
 
 WORKDIR /app/apps/admin-shell
 RUN npm run build
