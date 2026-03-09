@@ -1,0 +1,131 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum ProviderType {
+  FEISHU
+}
+
+enum UserTokenStatus {
+  active
+  expiring
+  expired
+  refreshing
+  reauthorization_required
+  revoked
+}
+
+enum TokenEventType {
+  auth_link_created
+  auth_callback_succeeded
+  auth_callback_failed
+  refresh_succeeded
+  refresh_failed
+  invalidated
+}
+
+enum AlertLevel {
+  P1
+  P2
+}
+
+enum AlertStatus {
+  open
+  acknowledged
+  resolved
+}
+
+model User {
+  id         String      @id @default(cuid())
+  openId     String      @unique
+  label      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  userTokens UserToken[]
+}
+
+model Provider {
+  id          String      @id @default(cuid())
+  type        ProviderType @unique
+  displayName String
+  enabled     Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  userTokens  UserToken[]
+  authSessions AuthSession[]
+}
+
+model UserToken {
+  id                    String          @id @default(cuid())
+  providerId            String
+  userId                String
+  accessTokenEncrypted  String
+  refreshTokenEncrypted String?
+  scopes                String[]
+  expiresAt             DateTime
+  refreshExpiresAt      DateTime?
+  status                UserTokenStatus @default(active)
+  lastRefreshAt         DateTime?
+  lastFailureAt         DateTime?
+  failureReason         String?
+  createdAt             DateTime        @default(now())
+  updatedAt             DateTime        @updatedAt
+
+  provider Provider @relation(fields: [providerId], references: [id])
+  user     User     @relation(fields: [userId], references: [id])
+  events   TokenEvent[]
+  alerts   Alert[]
+
+  @@unique([providerId, userId])
+  @@index([status, expiresAt])
+}
+
+model TokenEvent {
+  id          String         @id @default(cuid())
+  userTokenId String
+  type        TokenEventType
+  message     String
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+
+  userToken UserToken @relation(fields: [userTokenId], references: [id])
+
+  @@index([userTokenId, createdAt])
+}
+
+model AuthSession {
+  id            String       @id @default(cuid())
+  providerId    String
+  userOpenId    String
+  state         String       @unique
+  codeVerifier  String?
+  returnContext String?
+  status        String       @default("pending")
+  expiresAt     DateTime
+  createdAt     DateTime     @default(now())
+  completedAt   DateTime?
+
+  provider Provider @relation(fields: [providerId], references: [id])
+
+  @@index([providerId, userOpenId, status])
+}
+
+model Alert {
+  id          String      @id @default(cuid())
+  userTokenId String?
+  level       AlertLevel
+  status      AlertStatus @default(open)
+  kind        String
+  message     String
+  createdAt   DateTime    @default(now())
+  resolvedAt  DateTime?
+
+  userToken UserToken? @relation(fields: [userTokenId], references: [id])
+
+  @@index([status, createdAt])
+}

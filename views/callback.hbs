@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>{{title}}</title>
+    <style>
+      body { font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5; }
+      .ok { color: #156c2e; }
+    </style>
+  </head>
+  <body>
+    <h1>{{title}}</h1>
+    {{#if success}}
+      <p class="ok">Authorization succeeded for user <strong>{{userOpenId}}</strong>.</p>
+      <p>You can return to Feishu and continue the task.</p>
+      {{#if returnContext}}<p>Return context: {{returnContext}}</p>{{/if}}
+    {{else}}
+      <p>Authorization failed.</p>
+    {{/if}}
+  </body>
+  </html>
