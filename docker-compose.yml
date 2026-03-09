@@ -2,7 +2,7 @@ services:
   api:
     build: .
     ports:
-      - "3080:3080"
+      - "${API_PUBLIC_PORT:-3080}:3080"
     env_file:
       - .env
     depends_on:
