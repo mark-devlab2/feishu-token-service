@@ -4,18 +4,192 @@
     <meta charset="utf-8" />
     <title>{{title}}</title>
     <style>
-      body { font-family: sans-serif; max-width: 720px; margin: 40px auto; line-height: 1.5; }
-      .ok { color: #156c2e; }
+      :root {
+        color-scheme: light;
+        --bg: #f3f6fb;
+        --card: #ffffff;
+        --text: #16202a;
+        --muted: #607080;
+        --success: #0f7b42;
+        --success-bg: #ebf8f1;
+        --error: #a12b2b;
+        --error-bg: #fff2f2;
+        --border: #d9e2ec;
+        --shadow: 0 18px 50px rgba(15, 23, 42, 0.10);
+      }
+
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
+          "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(73, 142, 255, 0.14), transparent 34%),
+          radial-gradient(circle at top right, rgba(15, 123, 66, 0.12), transparent 28%),
+          var(--bg);
+        color: var(--text);
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 28px;
+        line-height: 1.6;
+      }
+
+      .card {
+        width: 100%;
+        max-width: 760px;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .hero {
+        padding: 28px 32px 18px;
+        border-bottom: 1px solid var(--border);
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 14px;
+        border-radius: 999px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .badge.success {
+        color: var(--success);
+        background: var(--success-bg);
+      }
+
+      .badge.error {
+        color: var(--error);
+        background: var(--error-bg);
+      }
+
+      h1 {
+        margin: 16px 0 8px;
+        font-size: 32px;
+        line-height: 1.2;
+      }
+
+      .summary {
+        margin: 0;
+        font-size: 16px;
+        color: var(--muted);
+      }
+
+      .content {
+        padding: 24px 32px 32px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .panel {
+        border: 1px solid var(--border);
+        border-radius: 18px;
+        padding: 18px 20px;
+        background: #fbfdff;
+      }
+
+      .panel h2 {
+        margin: 0 0 10px;
+        font-size: 18px;
+      }
+
+      .list {
+        margin: 0;
+        padding-left: 20px;
+      }
+
+      .list li + li {
+        margin-top: 8px;
+      }
+
+      .meta {
+        display: grid;
+        gap: 12px;
+      }
+
+      .meta-row {
+        display: grid;
+        gap: 4px;
+      }
+
+      .meta-label {
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .meta-value {
+        font-size: 15px;
+        word-break: break-all;
+      }
+
+      .tip {
+        margin: 0;
+        color: var(--muted);
+        font-size: 14px;
+      }
     </style>
   </head>
   <body>
-    <h1>{{title}}</h1>
-    {{#if success}}
-      <p class="ok">Authorization succeeded for user <strong>{{userOpenId}}</strong>.</p>
-      <p>You can return to Feishu and continue the task.</p>
-      {{#if returnContext}}<p>Return context: {{returnContext}}</p>{{/if}}
-    {{else}}
-      <p>Authorization failed.</p>
-    {{/if}}
+    <main class="card">
+      <section class="hero">
+        {{#if success}}
+          <div class="badge success">已授权成功</div>
+          <h1>{{title}}</h1>
+          <p class="summary">Feishu 用户授权已完成。你现在可以回到飞书继续刚才的任务，OpenClaw 将优先使用这次授权建立的 user-scope 能力。</p>
+        {{else}}
+          <div class="badge error">授权未完成</div>
+          <h1>{{title}}</h1>
+          <p class="summary">这次授权没有成功落地。回到飞书后，请重新发起授权，或检查应用回调地址、权限范围和网络连通性。</p>
+        {{/if}}
+      </section>
+
+      <section class="content">
+        {{#if success}}
+          <section class="panel">
+            <h2>当前状态</h2>
+            <div class="meta">
+              <div class="meta-row">
+                <span class="meta-label">授权用户</span>
+                <span class="meta-value">{{userOpenId}}</span>
+              </div>
+              {{#if returnContext}}
+                <div class="meta-row">
+                  <span class="meta-label">返回上下文</span>
+                  <span class="meta-value">{{returnContext}}</span>
+                </div>
+              {{/if}}
+            </div>
+          </section>
+
+          <section class="panel">
+            <h2>接下来怎么做</h2>
+            <ol class="list">
+              <li>返回飞书，继续你刚才触发的 user-scope 任务。</li>
+              <li>如果任务仍提示缺少授权，请直接重试一次，让 OpenClaw 重新检查 token 状态。</li>
+              <li>如后续提示 token 失效或需要重新授权，再重新打开授权链接即可。</li>
+            </ol>
+          </section>
+
+          <p class="tip">提示：本页面只负责完成授权闭环，不会展示敏感 token 内容。</p>
+        {{else}}
+          <section class="panel">
+            <h2>建议检查</h2>
+            <ol class="list">
+              <li>确认飞书开放平台中已配置正确的回调地址。</li>
+              <li>确认授权范围已包含当前任务需要的 user-scope 权限。</li>
+              <li>返回飞书重新生成授权链接，再次尝试。</li>
+            </ol>
+          </section>
+        {{/if}}
+      </section>
+    </main>
   </body>
-  </html>
+</html>
