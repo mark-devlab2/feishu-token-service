@@ -12,7 +12,7 @@ import { AppShell } from '@ui';
 import { authCenterRoutes, authCenterMenu } from '@auth-center';
 import { DashboardPage } from './pages/dashboard-page';
 import { LoginPage } from './pages/login-page';
-import { AuthProvider, useAuth } from './lib/auth-context';
+import { useAuth } from './lib/auth-context';
 
 function ProtectedLayout() {
   const { admin, loading, logout } = useAuth();
@@ -68,18 +68,9 @@ function LoginRoute() {
   return <LoginPage />;
 }
 
-function RootLayout() {
-  return (
-    <AuthProvider>
-      <Outlet />
-    </AuthProvider>
-  );
-}
-
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <RootLayout />,
     children: [
       { index: true, element: <Navigate to="/dashboard" replace /> },
       { path: 'login', element: <LoginRoute /> },
