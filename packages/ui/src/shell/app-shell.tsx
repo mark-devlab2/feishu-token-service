@@ -17,7 +17,6 @@ import {
   IconSafe,
   IconSettings,
 } from '@arco-design/web-react/icon';
-import { useNavigate } from 'react-router-dom';
 import { ADMIN_SUBTITLE, AdminMenuItem } from '@config';
 
 const { Header, Content, Sider } = Layout;
@@ -35,6 +34,7 @@ export function AppShell({
   menus,
   userLabel,
   onLogout,
+  onNavigate,
   children,
 }: {
   brand: string;
@@ -42,9 +42,9 @@ export function AppShell({
   menus: AdminMenuItem[];
   userLabel: string;
   onLogout: () => Promise<void>;
+  onNavigate: (path: string) => void;
   children: React.ReactNode;
 }) {
-  const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
   const breakpoints = Grid.useBreakpoint();
   const isMobile = !breakpoints.md;
@@ -59,7 +59,7 @@ export function AppShell({
       onClickMenuItem={(key: string) => {
         const target = menus.find((menu) => menu.key === key);
         if (target) {
-          navigate(target.path);
+          onNavigate(target.path);
           setMobileOpen(false);
         }
       }}

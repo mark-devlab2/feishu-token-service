@@ -47,6 +47,7 @@ function ProtectedLayout() {
         authCenterMenu,
       ]}
       userLabel={admin.username}
+      onNavigate={(path) => navigate(path)}
       onLogout={async () => {
         await logout();
         navigate('/login', { replace: true });
