@@ -8,7 +8,7 @@ export class AlertService {
   constructor(private readonly prisma: PrismaService) {}
 
   async raise(
-    userTokenId: string | null,
+    platformAuthorizationId: string | null,
     kind: string,
     message: string,
     level: AlertLevel = AlertLevel.P1,
@@ -16,7 +16,7 @@ export class AlertService {
   ) {
     const alert = await this.prisma.alert.create({
       data: {
-        userTokenId: userTokenId || (await this.findFallbackUserTokenId()),
+        platformAuthorizationId: platformAuthorizationId || (await this.findFallbackAuthorizationId()),
         kind,
         message,
         level,
@@ -37,8 +37,8 @@ export class AlertService {
     return alert;
   }
 
-  private async findFallbackUserTokenId() {
-    const token = await this.prisma.userToken.findFirst({ orderBy: { createdAt: 'asc' } });
+  private async findFallbackAuthorizationId() {
+    const token = await this.prisma.platformAuthorization.findFirst({ orderBy: { createdAt: 'asc' } });
     return token?.id || undefined;
   }
 }

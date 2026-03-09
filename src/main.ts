@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import path from 'node:path';
 import cookieParser from 'cookie-parser';
 import basicAuth from 'express-basic-auth';
+import hbs from 'hbs';
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
@@ -23,6 +24,7 @@ async function bootstrap() {
 
   app.setBaseViewsDir(path.join(process.cwd(), 'views'));
   app.setViewEngine('hbs');
+  hbs.registerHelper('eq', (left: unknown, right: unknown) => left === right);
 
   await app.listen(Number(process.env.PORT || 3080));
 }

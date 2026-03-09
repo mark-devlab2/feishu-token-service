@@ -15,6 +15,13 @@ type FeishuAccessTokenResponse = {
   };
 };
 
+type FeishuRequestOptions = {
+  method?: 'GET' | 'POST' | 'PUT';
+  path: string;
+  params?: Record<string, string | number | undefined>;
+  data?: Record<string, unknown>;
+};
+
 @Injectable()
 export class FeishuProvider implements OAuthProvider {
   readonly providerKey = 'feishu';
@@ -79,6 +86,54 @@ export class FeishuProvider implements OAuthProvider {
     return crypto.randomBytes(24).toString('hex');
   }
 
+  async getDocumentRawContent(userAccessToken: string, documentId: string) {
+    return this.requestWithUserAccessToken(userAccessToken, {
+      path: `/open-apis/docx/v1/documents/${documentId}/raw_content`,
+    });
+  }
+
+  async getWikiNode(userAccessToken: string, nodeToken: string, objType: string) {
+    return this.requestWithUserAccessToken(userAccessToken, {
+      path: '/open-apis/wiki/v2/spaces/get_node',
+      params: {
+        token: nodeToken,
+        obj_type: objType,
+      },
+    });
+  }
+
+  async getMinutes(userAccessToken: string, minutesToken: string) {
+    return this.requestWithUserAccessToken(userAccessToken, {
+      path: `/open-apis/minutes/v1/minutes/${minutesToken}`,
+    });
+  }
+
+  async listMessages(
+    userAccessToken: string,
+    input: {
+      containerIdType: string;
+      containerId: string;
+      pageSize?: number;
+      pageToken?: string;
+    },
+  ) {
+    return this.requestWithUserAccessToken(userAccessToken, {
+      path: '/open-apis/im/v1/messages',
+      params: {
+        container_id_type: input.containerIdType,
+        container_id: input.containerId,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+      },
+    });
+  }
+
+  async getMessage(userAccessToken: string, messageId: string) {
+    return this.requestWithUserAccessToken(userAccessToken, {
+      path: `/open-apis/im/v1/messages/${messageId}`,
+    });
+  }
+
   private async fetchAppAccessToken(): Promise<string> {
     const response = await axios.post<{ code: number; app_access_token?: string; msg?: string }>(
       `${this.baseUrl}/open-apis/auth/v3/app_access_token/internal`,
@@ -110,5 +165,30 @@ export class FeishuProvider implements OAuthProvider {
       scope: (data.data.scope || '').split(' ').filter(Boolean),
       raw: data as unknown as Record<string, unknown>,
     };
+  }
+
+  private async requestWithUserAccessToken(userAccessToken: string, options: FeishuRequestOptions) {
+    const url = new URL(options.path, this.baseUrl);
+    for (const [key, value] of Object.entries(options.params || {})) {
+      if (value !== undefined && value !== null && value !== '') {
+        url.searchParams.set(key, String(value));
+      }
+    }
+
+    const response = await axios.request({
+      url: url.toString(),
+      method: options.method || 'GET',
+      headers: {
+        Authorization: `Bearer ${userAccessToken}`,
+      },
+      data: options.data,
+    });
+
+    const body = response.data as { code?: number; msg?: string; data?: unknown };
+    if (body && typeof body === 'object' && 'code' in body && body.code !== 0) {
+      throw new Error(`feishu user data request failed: ${body.msg || 'unknown'}`);
+    }
+
+    return body?.data ?? body;
   }
 }

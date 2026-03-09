@@ -2,61 +2,172 @@
 <html>
   <head>
     <meta charset="utf-8" />
-    <title>Feishu Token Service</title>
+    <title>个人助手授权中心</title>
     <style>
-      body { font-family: sans-serif; margin: 24px; }
-      table { border-collapse: collapse; width: 100%; margin-bottom: 24px; }
-      th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-      th { background: #f5f5f5; }
+      body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 24px; color: #18212a; }
+      h1, h2 { margin-bottom: 12px; }
+      .grid { display: grid; gap: 24px; }
+      .panel { border: 1px solid #d8e1ea; border-radius: 16px; padding: 20px; background: #fff; }
+      table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+      th, td { border: 1px solid #e6edf3; padding: 8px 10px; text-align: left; vertical-align: top; }
+      th { background: #f7fafc; }
+      form.inline { display: inline-block; margin-right: 8px; }
+      input, select, button { font: inherit; padding: 8px 10px; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      .muted { color: #68768a; font-size: 14px; }
+      code { background: #f4f7fa; padding: 2px 6px; border-radius: 6px; }
     </style>
   </head>
   <body>
-    <h1>Feishu Token Service Admin</h1>
+    <h1>个人助手授权中心</h1>
+    <p class="muted">第一阶段仅超管可登录。这里同时管理用户对话准入、Feishu personal 授权，以及全局 app 授权。</p>
 
-    <h2>Tokens</h2>
-    <table>
-      <thead>
-        <tr>
-          <th>User</th>
-          <th>Status</th>
-          <th>Scopes</th>
-          <th>Expires At</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{#each tokens}}
-          <tr>
-            <td><a href="/admin/tokens/{{this.user.openId}}">{{this.user.openId}}</a></td>
-            <td>{{this.status}}</td>
-            <td>{{this.scopes}}</td>
-            <td>{{this.expiresAt}}</td>
-          </tr>
-        {{/each}}
-      </tbody>
-    </table>
+    <section class="panel">
+      <h2>新增用户</h2>
+      <form action="/admin/users" method="post" class="row">
+        <input type="text" name="username" placeholder="用户名（唯一）" required />
+        <input type="text" name="display_name" placeholder="显示名" />
+        <button type="submit">添加用户</button>
+      </form>
+    </section>
 
-    <h2>Recent Events</h2>
-    <table>
-      <thead>
-        <tr><th>Type</th><th>Message</th><th>Created</th></tr>
-      </thead>
-      <tbody>
-        {{#each events}}
-          <tr><td>{{this.type}}</td><td>{{this.message}}</td><td>{{this.createdAt}}</td></tr>
-        {{/each}}
-      </tbody>
-    </table>
+    <div class="grid">
+      <section class="panel">
+        <h2>用户目录</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>用户</th>
+              <th>状态</th>
+              <th>超管</th>
+              <th>平台账号</th>
+              <th>Feishu personal</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each users}}
+              <tr>
+                <td>
+                  <a href="/admin/users/{{this.id}}">{{this.displayName}}</a><br />
+                  <span class="muted">{{this.username}}</span>
+                </td>
+                <td>{{this.status}}</td>
+                <td>{{#if this.isSuperAdmin}}是{{else}}否{{/if}}</td>
+                <td>
+                  {{#each this.platformAccounts}}
+                    <div>
+                      <strong>{{this.provider.displayName}}</strong>：
+                      <code>{{this.externalSubjectId}}</code>
+                      （{{#if this.enabled}}启用{{else}}禁用{{/if}}）
+                    </div>
+                  {{else}}
+                    <span class="muted">暂无</span>
+                  {{/each}}
+                </td>
+                <td>
+                  {{#each this.platformAuthorizations}}
+                    {{#if (eq this.authKind "personal")}}
+                      <div>
+                        <strong>{{this.provider.displayName}}</strong>：
+                        {{#if this.enabled}}启用{{else}}关闭{{/if}} /
+                        {{this.status}}
+                      </div>
+                    {{/if}}
+                  {{else}}
+                    <span class="muted">未配置</span>
+                  {{/each}}
+                </td>
+                <td>
+                  {{#if (eq this.status "active")}}
+                    <form class="inline" action="/admin/users/{{this.id}}/disable" method="post">
+                      <button type="submit">禁用用户</button>
+                    </form>
+                  {{else}}
+                    <form class="inline" action="/admin/users/{{this.id}}/enable" method="post">
+                      <button type="submit">启用用户</button>
+                    </form>
+                  {{/if}}
+                  <a href="/admin/users/{{this.id}}">详情</a>
+                </td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
 
-    <h2>Alerts</h2>
-    <table>
-      <thead>
-        <tr><th>Level</th><th>Status</th><th>Kind</th><th>Message</th><th>Created</th></tr>
-      </thead>
-      <tbody>
-        {{#each alerts}}
-          <tr><td>{{this.level}}</td><td>{{this.status}}</td><td>{{this.kind}}</td><td>{{this.message}}</td><td>{{this.createdAt}}</td></tr>
-        {{/each}}
-      </tbody>
-    </table>
+      <section class="panel">
+        <h2>全局 App 授权</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Provider</th>
+              <th>账号键</th>
+              <th>状态</th>
+              <th>启用</th>
+              <th>操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {{#each appAuthorizations}}
+              <tr>
+                <td>{{this.provider.displayName}}</td>
+                <td>{{this.accountKey}}</td>
+                <td>{{this.status}}</td>
+                <td>{{#if this.enabled}}是{{else}}否{{/if}}</td>
+                <td>
+                  {{#if this.enabled}}
+                    <form class="inline" action="/admin/app-authorizations/feishu/disable" method="post">
+                      <button type="submit">关闭</button>
+                    </form>
+                  {{else}}
+                    <form class="inline" action="/admin/app-authorizations/feishu/enable" method="post">
+                      <button type="submit">启用</button>
+                    </form>
+                  {{/if}}
+                </td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>最近授权事件</h2>
+        <table>
+          <thead>
+            <tr><th>时间</th><th>类型</th><th>消息</th></tr>
+          </thead>
+          <tbody>
+            {{#each events}}
+              <tr>
+                <td>{{this.createdAt}}</td>
+                <td>{{this.type}}</td>
+                <td>{{this.message}}</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>最近告警</h2>
+        <table>
+          <thead>
+            <tr><th>时间</th><th>级别</th><th>类型</th><th>消息</th></tr>
+          </thead>
+          <tbody>
+            {{#each alerts}}
+              <tr>
+                <td>{{this.createdAt}}</td>
+                <td>{{this.level}}</td>
+                <td>{{this.kind}}</td>
+                <td>{{this.message}}</td>
+              </tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+    </div>
   </body>
-  </html>
+</html>

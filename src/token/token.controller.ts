@@ -14,7 +14,7 @@ export class TokenController {
 
   @Get(':user_open_id')
   getToken(@Param('user_open_id') userOpenId: string) {
-    return this.tokenService.getToken(userOpenId);
+    return this.tokenService.getAuthorizationSummary(userOpenId);
   }
 
   @Post('refresh/:user_open_id')

@@ -1,9 +1,9 @@
 import { Module } from '@nestjs/common';
 import { DirectoryModule } from '../directory/directory.module';
-import { AdminController } from './admin.controller';
+import { IntegrationController } from './integration.controller';
 
 @Module({
   imports: [DirectoryModule],
-  controllers: [AdminController],
+  controllers: [IntegrationController],
 })
-export class AdminModule {}
+export class IntegrationModule {}

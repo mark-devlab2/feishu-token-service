@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { ProviderType, UserTokenStatus } from '@prisma/client';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { AuthorizationKind, AuthorizationStatus } from '@prisma/client';
+import { AlertService } from '../alert/alert.service';
 import { CryptoService } from '../common/services/crypto.service';
 import { PrismaService } from '../common/services/prisma.service';
-import { AlertService } from '../alert/alert.service';
+import { DirectoryService } from '../directory/directory.service';
 import { FeishuProvider } from '../provider/feishu.provider';
 
 @Injectable()
@@ -12,50 +13,73 @@ export class AuthService {
     private readonly provider: FeishuProvider,
     private readonly cryptoService: CryptoService,
     private readonly alertService: AlertService,
+    private readonly directoryService: DirectoryService,
   ) {}
 
   async getStatus(userOpenId: string) {
-    const provider = await this.getOrCreateProvider();
-    const user = await this.prisma.user.findUnique({
-      where: { openId: userOpenId },
-      include: {
-        userTokens: {
-          where: { providerId: provider.id },
-          take: 1,
-          orderBy: { updatedAt: 'desc' },
-        },
-      },
-    });
+    const { access, authorization } = await this.directoryService.getFeishuPersonalAuthorization(userOpenId);
 
-    const token = user?.userTokens[0];
     return {
+      provider: 'feishu',
       userOpenId,
-      available: token?.status === UserTokenStatus.active || token?.status === UserTokenStatus.expiring,
-      status: token?.status || 'missing',
-      expiresAt: token?.expiresAt || null,
-      scopes: token?.scopes || [],
-      requiresReauthorization: token?.status === UserTokenStatus.reauthorization_required,
+      chatAllowed: access.allowed,
+      chatReason: access.reason,
+      user: access.account
+        ? {
+            id: access.account.user.id,
+            username: access.account.user.username,
+            displayName: access.account.user.displayName,
+            status: access.account.user.status,
+          }
+        : null,
+      platformAccountEnabled: access.account?.enabled ?? false,
+      personalAuthorizationEnabled: authorization?.enabled ?? false,
+      available:
+        !!authorization &&
+        authorization.enabled &&
+        (authorization.status === AuthorizationStatus.active ||
+          authorization.status === AuthorizationStatus.expiring),
+      status: authorization?.status || 'missing',
+      expiresAt: authorization?.expiresAt || null,
+      scopes: authorization?.scopes || [],
+      requiresReauthorization: authorization?.status === AuthorizationStatus.reauthorization_required,
     };
   }
 
   async createAuthLink(userOpenId: string, userLabel?: string, returnContext?: string) {
-    const provider = await this.getOrCreateProvider();
+    const { access, authorization } = await this.directoryService.getFeishuPersonalAuthorization(userOpenId);
+    if (!access.allowed || !access.account) {
+      throw new ForbiddenException(access.reason || 'chat access denied');
+    }
+    if (!authorization || !authorization.enabled) {
+      throw new ForbiddenException('personal authorization disabled');
+    }
+
     const state = this.provider.generateState();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000);
 
-    await this.prisma.user.upsert({
-      where: { openId: userOpenId },
-      update: { label: userLabel || undefined },
-      create: { openId: userOpenId, label: userLabel },
-    });
-
     await this.prisma.authSession.create({
       data: {
-        providerId: provider.id,
-        userOpenId,
+        providerId: access.account.providerId,
+        userId: access.account.userId,
+        platformAccountId: access.account.id,
+        requestSubjectId: userOpenId,
         state,
         returnContext,
         expiresAt,
+      },
+    });
+
+    await this.prisma.authEvent.create({
+      data: {
+        platformAuthorizationId: authorization.id,
+        type: 'auth_link_created',
+        message: `为 ${access.account.user.username} 生成 Feishu personal 授权链接`,
+        metadata: {
+          userOpenId,
+          userLabel: userLabel || access.account.displayName || access.account.user.displayName || access.account.user.username,
+          returnContext: returnContext || null,
+        },
       },
     });
 
@@ -66,6 +90,8 @@ export class AuthService {
         scopes: this.provider.defaultScopes(),
       }),
       expiresAt,
+      userId: access.account.user.id,
+      username: access.account.user.username,
     };
   }
 
@@ -74,24 +100,32 @@ export class AuthService {
     if (!session) {
       throw new NotFoundException('auth session not found');
     }
+    if (!session.userId || !session.platformAccountId) {
+      throw new NotFoundException('auth session missing user context');
+    }
 
-    const provider = await this.getOrCreateProvider();
-    const user = await this.prisma.user.upsert({
-      where: { openId: session.userOpenId },
-      update: {},
-      create: { openId: session.userOpenId },
+    const platformAccount = await this.prisma.platformAccount.findUnique({
+      where: { id: session.platformAccountId },
+      include: { user: true },
     });
+    if (!platformAccount) {
+      throw new NotFoundException('platform account not found');
+    }
 
     try {
       const tokenResponse = await this.provider.exchangeCodeForToken(code);
-      await this.prisma.userToken.upsert({
+      const authorization = await this.prisma.platformAuthorization.upsert({
         where: {
-          providerId_userId: {
-            providerId: provider.id,
-            userId: user.id,
+          providerId_authKind_accountKey: {
+            providerId: session.providerId,
+            authKind: AuthorizationKind.personal,
+            accountKey: platformAccount.user.username,
           },
         },
         update: {
+          userId: platformAccount.userId,
+          platformAccountId: platformAccount.id,
+          enabled: true,
           accessTokenEncrypted: this.cryptoService.encrypt(tokenResponse.accessToken),
           refreshTokenEncrypted: tokenResponse.refreshToken
             ? this.cryptoService.encrypt(tokenResponse.refreshToken)
@@ -99,13 +133,23 @@ export class AuthService {
           scopes: tokenResponse.scope,
           expiresAt: tokenResponse.expiresAt,
           refreshExpiresAt: tokenResponse.refreshExpiresAt || null,
-          status: UserTokenStatus.active,
+          status: AuthorizationStatus.active,
           lastRefreshAt: new Date(),
+          lastFailureAt: null,
           failureReason: null,
+          metadata: {
+            source: 'oauth_callback',
+            provider: 'feishu',
+            requestSubjectId: session.requestSubjectId,
+          },
         },
         create: {
-          providerId: provider.id,
-          userId: user.id,
+          providerId: session.providerId,
+          authKind: AuthorizationKind.personal,
+          userId: platformAccount.userId,
+          platformAccountId: platformAccount.id,
+          accountKey: platformAccount.user.username,
+          enabled: true,
           accessTokenEncrypted: this.cryptoService.encrypt(tokenResponse.accessToken),
           refreshTokenEncrypted: tokenResponse.refreshToken
             ? this.cryptoService.encrypt(tokenResponse.refreshToken)
@@ -113,8 +157,25 @@ export class AuthService {
           scopes: tokenResponse.scope,
           expiresAt: tokenResponse.expiresAt,
           refreshExpiresAt: tokenResponse.refreshExpiresAt || null,
-          status: UserTokenStatus.active,
+          status: AuthorizationStatus.active,
           lastRefreshAt: new Date(),
+          metadata: {
+            source: 'oauth_callback',
+            provider: 'feishu',
+            requestSubjectId: session.requestSubjectId,
+          },
+        },
+      });
+
+      await this.prisma.authEvent.create({
+        data: {
+          platformAuthorizationId: authorization.id,
+          type: 'auth_callback_succeeded',
+          message: `Feishu personal 授权成功：${platformAccount.user.username}`,
+          metadata: {
+            requestSubjectId: session.requestSubjectId,
+            returnContext: session.returnContext || null,
+          },
         },
       });
 
@@ -125,30 +186,47 @@ export class AuthService {
 
       return {
         success: true,
-        userOpenId: session.userOpenId,
+        userOpenId: session.requestSubjectId,
         returnContext: session.returnContext,
+        username: platformAccount.user.username,
       };
     } catch (error) {
+      const authorization = await this.prisma.platformAuthorization.findUnique({
+        where: {
+          providerId_authKind_accountKey: {
+            providerId: session.providerId,
+            authKind: AuthorizationKind.personal,
+            accountKey: platformAccount.user.username,
+          },
+        },
+      });
+
+      if (authorization) {
+        await this.prisma.authEvent.create({
+          data: {
+            platformAuthorizationId: authorization.id,
+            type: 'auth_callback_failed',
+            message: `Feishu personal 授权失败：${platformAccount.user.username}`,
+            metadata: {
+              error: (error as Error).message,
+              requestSubjectId: session.requestSubjectId,
+            },
+          },
+        });
+      }
+
       await this.prisma.authSession.update({
         where: { id: session.id },
         data: { status: 'failed', completedAt: new Date() },
       });
 
       await this.alertService.raise(
-        null,
+        authorization?.id || null,
         'auth_callback_failed',
-        `Feishu auth callback failed for ${session.userOpenId}: ${(error as Error).message}`,
+        `Feishu personal 授权失败：${platformAccount.user.username}，原因：${(error as Error).message}`,
       );
 
       throw error;
     }
-  }
-
-  private async getOrCreateProvider() {
-    return this.prisma.provider.upsert({
-      where: { type: ProviderType.FEISHU },
-      update: { displayName: 'Feishu', enabled: true },
-      create: { type: ProviderType.FEISHU, displayName: 'Feishu', enabled: true },
-    });
   }
 }

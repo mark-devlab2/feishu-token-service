@@ -1,10 +1,11 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { AlertLevel, AlertStatus, ProviderType, UserTokenStatus } from '@prisma/client';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { AlertLevel, AlertStatus, AuthorizationKind, AuthorizationStatus, ProviderType } from '@prisma/client';
 import { Cron } from '@nestjs/schedule';
+import { AlertService } from '../alert/alert.service';
 import { CryptoService } from '../common/services/crypto.service';
 import { PrismaService } from '../common/services/prisma.service';
 import { RedisService } from '../common/services/redis.service';
-import { AlertService } from '../alert/alert.service';
+import { DirectoryService } from '../directory/directory.service';
 import { FeishuProvider } from '../provider/feishu.provider';
 
 @Injectable()
@@ -15,55 +16,96 @@ export class TokenService {
     private readonly redisService: RedisService,
     private readonly provider: FeishuProvider,
     private readonly alertService: AlertService,
+    private readonly directoryService: DirectoryService,
   ) {}
 
   async resolve(userOpenId: string) {
-    const token = await this.getUserToken(userOpenId);
-    if (!token) {
-      return { available: false, status: 'missing' };
+    const { access, authorization } = await this.directoryService.getFeishuPersonalAuthorization(userOpenId);
+    if (!access.allowed || !access.account) {
+      return {
+        provider: 'feishu',
+        userOpenId,
+        chatAllowed: false,
+        chatReason: access.reason,
+        personalAuthorizationEnabled: false,
+        available: false,
+        status: 'missing',
+      };
+    }
+
+    if (!authorization || !authorization.enabled) {
+      return {
+        provider: 'feishu',
+        userOpenId,
+        chatAllowed: true,
+        chatReason: null,
+        personalAuthorizationEnabled: false,
+        available: false,
+        status: 'missing',
+        userId: access.account.user.id,
+        username: access.account.user.username,
+      };
     }
 
     return {
-      available: token.status === UserTokenStatus.active || token.status === UserTokenStatus.expiring,
-      status: token.status,
-      token: token.status === UserTokenStatus.active || token.status === UserTokenStatus.expiring
-        ? this.cryptoService.decrypt(token.accessTokenEncrypted)
-        : null,
-      expiresAt: token.expiresAt,
-      scopes: token.scopes,
+      provider: 'feishu',
+      userOpenId,
+      chatAllowed: true,
+      chatReason: null,
+      personalAuthorizationEnabled: true,
+      available:
+        authorization.status === AuthorizationStatus.active ||
+        authorization.status === AuthorizationStatus.expiring,
+      status: authorization.status,
+      expiresAt: authorization.expiresAt,
+      scopes: authorization.scopes,
+      userId: access.account.user.id,
+      username: access.account.user.username,
+      accountKey: authorization.accountKey,
+      requiresReauthorization: authorization.status === AuthorizationStatus.reauthorization_required,
     };
   }
 
-  async getToken(userOpenId: string) {
-    const token = await this.getUserToken(userOpenId);
-    if (!token) {
-      throw new NotFoundException('token not found');
+  async getAuthorizationSummary(userOpenId: string) {
+    const { access, authorization } = await this.directoryService.getFeishuPersonalAuthorization(userOpenId);
+    if (!access.allowed || !access.account || !authorization) {
+      throw new NotFoundException('authorization not found');
     }
 
     return {
       userOpenId,
-      status: token.status,
-      scopes: token.scopes,
-      expiresAt: token.expiresAt,
-      refreshExpiresAt: token.refreshExpiresAt,
-      lastRefreshAt: token.lastRefreshAt,
-      lastFailureAt: token.lastFailureAt,
-      failureReason: token.failureReason,
-      maskedAccessToken: this.cryptoService.mask(this.cryptoService.decrypt(token.accessTokenEncrypted)),
+      userId: access.account.user.id,
+      username: access.account.user.username,
+      accountKey: authorization.accountKey,
+      status: authorization.status,
+      enabled: authorization.enabled,
+      scopes: authorization.scopes,
+      expiresAt: authorization.expiresAt,
+      refreshExpiresAt: authorization.refreshExpiresAt,
+      lastRefreshAt: authorization.lastRefreshAt,
+      lastFailureAt: authorization.lastFailureAt,
+      failureReason: authorization.failureReason,
+      maskedAccessToken: authorization.accessTokenEncrypted
+        ? this.cryptoService.mask(this.cryptoService.decrypt(authorization.accessTokenEncrypted))
+        : '',
     };
   }
 
   async invalidate(userOpenId: string) {
-    const token = await this.getUserToken(userOpenId);
-    if (!token) {
-      throw new NotFoundException('token not found');
-    }
-
-    await this.prisma.userToken.update({
-      where: { id: token.id },
+    const authorization = await this.getRequiredPersonalAuthorization(userOpenId);
+    await this.prisma.platformAuthorization.update({
+      where: { id: authorization.id },
       data: {
-        status: UserTokenStatus.revoked,
+        status: AuthorizationStatus.revoked,
         failureReason: 'manually invalidated',
+      },
+    });
+
+    await this.prisma.authEvent.create({
+      data: {
+        platformAuthorizationId: authorization.id,
+        type: 'invalidated',
+        message: `手动失效 Feishu personal 授权：${authorization.accountKey}`,
       },
     });
 
@@ -71,33 +113,52 @@ export class TokenService {
   }
 
   async refresh(userOpenId: string) {
-    const token = await this.getUserToken(userOpenId);
-    if (!token) {
-      throw new NotFoundException('token not found');
-    }
+    const authorization = await this.getRequiredPersonalAuthorization(userOpenId);
+    return this.refreshAuthorizationRecord(authorization.id);
+  }
 
-    return this.refreshTokenRecord(token.id);
+  async getAvailableAccessToken(userOpenId: string) {
+    const authorization = await this.getRequiredPersonalAuthorization(userOpenId);
+    if (
+      authorization.status !== AuthorizationStatus.active &&
+      authorization.status !== AuthorizationStatus.expiring
+    ) {
+      throw new ForbiddenException('user token unavailable');
+    }
+    if (!authorization.accessTokenEncrypted) {
+      throw new NotFoundException('access token not found');
+    }
+    return this.cryptoService.decrypt(authorization.accessTokenEncrypted);
   }
 
   @Cron('*/5 * * * *')
   async refreshExpiringTokens() {
+    const provider = await this.prisma.provider.findUnique({
+      where: { type: ProviderType.FEISHU },
+    });
+    if (!provider) {
+      return;
+    }
+
     const lookahead = Number(process.env.REFRESH_LOOKAHEAD_SECONDS || 900);
     const threshold = new Date(Date.now() + lookahead * 1000);
-    const tokens = await this.prisma.userToken.findMany({
+    const authorizations = await this.prisma.platformAuthorization.findMany({
       where: {
-        provider: { is: { type: ProviderType.FEISHU } },
-        status: { in: [UserTokenStatus.active, UserTokenStatus.expiring] },
+        providerId: provider.id,
+        authKind: AuthorizationKind.personal,
+        enabled: true,
+        status: { in: [AuthorizationStatus.active, AuthorizationStatus.expiring] },
         expiresAt: { lte: threshold },
       },
     });
 
-    for (const token of tokens) {
-      await this.refreshTokenRecord(token.id).catch(() => undefined);
+    for (const authorization of authorizations) {
+      await this.refreshAuthorizationRecord(authorization.id).catch(() => undefined);
     }
   }
 
-  private async refreshTokenRecord(userTokenId: string) {
-    const lockKey = `feishu-token-refresh:${userTokenId}`;
+  private async refreshAuthorizationRecord(platformAuthorizationId: string) {
+    const lockKey = `feishu-token-refresh:${platformAuthorizationId}`;
     const lockTtl = Number(process.env.LOCK_TTL_SECONDS || 120);
     const locked = await this.redisService.client.set(lockKey, '1', 'EX', lockTtl, 'NX');
     if (!locked) {
@@ -105,70 +166,78 @@ export class TokenService {
     }
 
     try {
-      const token = await this.prisma.userToken.findUnique({
-        where: { id: userTokenId },
-        include: { user: true },
+      const authorization = await this.prisma.platformAuthorization.findUnique({
+        where: { id: platformAuthorizationId },
+        include: {
+          user: true,
+          platformAccount: true,
+        },
       });
-      if (!token) {
-        throw new NotFoundException('token not found');
+      if (!authorization) {
+        throw new NotFoundException('authorization not found');
       }
-      if (!token.refreshTokenEncrypted) {
+      if (!authorization.refreshTokenEncrypted) {
         throw new Error('refresh token unavailable');
       }
 
-      const refreshToken = this.cryptoService.decrypt(token.refreshTokenEncrypted);
+      const refreshToken = this.cryptoService.decrypt(authorization.refreshTokenEncrypted);
       const refreshed = await this.provider.refreshAccessToken(refreshToken);
 
-      const updated = await this.prisma.userToken.update({
-        where: { id: token.id },
+      const updated = await this.prisma.platformAuthorization.update({
+        where: { id: authorization.id },
         data: {
           accessTokenEncrypted: this.cryptoService.encrypt(refreshed.accessToken),
           refreshTokenEncrypted: refreshed.refreshToken
             ? this.cryptoService.encrypt(refreshed.refreshToken)
-            : token.refreshTokenEncrypted,
+            : authorization.refreshTokenEncrypted,
           scopes: refreshed.scope,
           expiresAt: refreshed.expiresAt,
-          refreshExpiresAt: refreshed.refreshExpiresAt || token.refreshExpiresAt,
-          status: UserTokenStatus.active,
+          refreshExpiresAt: refreshed.refreshExpiresAt || authorization.refreshExpiresAt,
+          status: AuthorizationStatus.active,
           lastRefreshAt: new Date(),
           lastFailureAt: null,
           failureReason: null,
         },
       });
 
-      await this.prisma.tokenEvent.create({
+      await this.prisma.authEvent.create({
         data: {
-          userTokenId: token.id,
+          platformAuthorizationId: updated.id,
           type: 'refresh_succeeded',
-          message: 'Feishu access token refreshed successfully',
+          message: `Feishu personal 授权刷新成功：${updated.accountKey}`,
         },
       });
 
       return { ok: true, status: updated.status };
     } catch (error) {
-      const token = await this.prisma.userToken.findUnique({ where: { id: userTokenId } });
-      if (token) {
-        const updated = await this.prisma.userToken.update({
-          where: { id: token.id },
+      const authorization = await this.prisma.platformAuthorization.findUnique({
+        where: { id: platformAuthorizationId },
+      });
+      if (authorization) {
+        const updated = await this.prisma.platformAuthorization.update({
+          where: { id: authorization.id },
           data: {
-            status: UserTokenStatus.reauthorization_required,
+            status: AuthorizationStatus.reauthorization_required,
             lastFailureAt: new Date(),
             failureReason: (error as Error).message,
           },
         });
 
-        await this.prisma.tokenEvent.create({
+        await this.prisma.authEvent.create({
           data: {
-            userTokenId: updated.id,
+            platformAuthorizationId: updated.id,
             type: 'refresh_failed',
-            message: `Feishu access token refresh failed: ${(error as Error).message}`,
+            message: `Feishu personal 授权刷新失败：${updated.accountKey}`,
+            metadata: {
+              error: (error as Error).message,
+            },
           },
         });
 
         await this.alertService.raise(
           updated.id,
           'refresh_failed',
-          `Feishu user token refresh failed for token ${updated.id}: ${(error as Error).message}`,
+          `Feishu personal 授权刷新失败：${updated.accountKey}，原因：${(error as Error).message}`,
           AlertLevel.P1,
           AlertStatus.open,
         );
@@ -180,14 +249,14 @@ export class TokenService {
     }
   }
 
-  private async getUserToken(userOpenId: string) {
-    return this.prisma.userToken.findFirst({
-      where: {
-        provider: { is: { type: ProviderType.FEISHU } },
-        user: { is: { openId: userOpenId } },
-      },
-      include: { user: true, provider: true },
-      orderBy: { updatedAt: 'desc' },
-    });
+  private async getRequiredPersonalAuthorization(userOpenId: string) {
+    const { access, authorization } = await this.directoryService.getFeishuPersonalAuthorization(userOpenId);
+    if (!access.allowed || !access.account) {
+      throw new ForbiddenException(access.reason || 'chat access denied');
+    }
+    if (!authorization || !authorization.enabled) {
+      throw new NotFoundException('personal authorization not enabled');
+    }
+    return authorization;
   }
 }

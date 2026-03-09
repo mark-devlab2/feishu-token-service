@@ -1,8 +1,8 @@
 {
-  "name": "feishu-token-service",
+  "name": "assistant-auth-gateway",
   "version": "0.1.0",
   "private": true,
-  "description": "Lightweight Feishu user token service for OpenClaw",
+  "description": "个人助手授权中心与平台数据 Gateway",
   "scripts": {
     "build": "nest build",
     "start": "node dist/main",

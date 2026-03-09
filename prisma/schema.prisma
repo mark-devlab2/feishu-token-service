@@ -11,7 +11,17 @@ enum ProviderType {
   FEISHU
 }
 
-enum UserTokenStatus {
+enum UserStatus {
+  active
+  disabled
+}
+
+enum AuthorizationKind {
+  personal
+  app
+}
+
+enum AuthorizationStatus {
   active
   expiring
   expired
@@ -20,13 +30,15 @@ enum UserTokenStatus {
   revoked
 }
 
-enum TokenEventType {
+enum AuthEventType {
   auth_link_created
   auth_callback_succeeded
   auth_callback_failed
   refresh_succeeded
   refresh_failed
   invalidated
+  enabled
+  disabled
 }
 
 enum AlertLevel {
@@ -41,91 +53,119 @@ enum AlertStatus {
 }
 
 model User {
-  id         String      @id @default(cuid())
-  openId     String      @unique
-  label      String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-  userTokens UserToken[]
+  id                     String                  @id @default(cuid())
+  username               String                  @unique
+  displayName            String?
+  status                 UserStatus              @default(active)
+  isSuperAdmin           Boolean                 @default(false)
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  platformAccounts       PlatformAccount[]
+  platformAuthorizations PlatformAuthorization[]
 }
 
 model Provider {
-  id          String      @id @default(cuid())
-  type        ProviderType @unique
-  displayName String
-  enabled     Boolean     @default(true)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  userTokens  UserToken[]
-  authSessions AuthSession[]
+  id                     String                  @id @default(cuid())
+  type                   ProviderType            @unique
+  displayName            String
+  enabled                Boolean                 @default(true)
+  config                 Json?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  platformAccounts       PlatformAccount[]
+  platformAuthorizations PlatformAuthorization[]
+  authSessions           AuthSession[]
 }
 
-model UserToken {
-  id                    String          @id @default(cuid())
+model PlatformAccount {
+  id                     String                  @id @default(cuid())
+  providerId             String
+  userId                 String
+  externalSubjectId      String
+  displayName            String?
+  enabled                Boolean                 @default(true)
+  metadata               Json?
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  provider               Provider                @relation(fields: [providerId], references: [id])
+  user                   User                    @relation(fields: [userId], references: [id])
+  platformAuthorizations PlatformAuthorization[]
+
+  @@unique([providerId, externalSubjectId])
+  @@index([userId, providerId])
+}
+
+model PlatformAuthorization {
+  id                    String                @id @default(cuid())
   providerId            String
-  userId                String
-  accessTokenEncrypted  String
+  authKind              AuthorizationKind     @default(personal)
+  userId                String?
+  platformAccountId     String?
+  accountKey            String                @default("")
+  enabled               Boolean               @default(false)
+  accessTokenEncrypted  String?
   refreshTokenEncrypted String?
   scopes                String[]
-  expiresAt             DateTime
+  expiresAt             DateTime?
   refreshExpiresAt      DateTime?
-  status                UserTokenStatus @default(active)
+  status                AuthorizationStatus   @default(expired)
   lastRefreshAt         DateTime?
   lastFailureAt         DateTime?
   failureReason         String?
-  createdAt             DateTime        @default(now())
-  updatedAt             DateTime        @updatedAt
+  metadata              Json?
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  provider              Provider              @relation(fields: [providerId], references: [id])
+  user                  User?                 @relation(fields: [userId], references: [id])
+  platformAccount       PlatformAccount?      @relation(fields: [platformAccountId], references: [id])
+  authEvents            AuthEvent[]
+  alerts                Alert[]
 
-  provider Provider @relation(fields: [providerId], references: [id])
-  user     User     @relation(fields: [userId], references: [id])
-  events   TokenEvent[]
-  alerts   Alert[]
-
-  @@unique([providerId, userId])
+  @@unique([providerId, authKind, accountKey])
+  @@index([providerId, authKind, userId])
   @@index([status, expiresAt])
 }
 
-model TokenEvent {
-  id          String         @id @default(cuid())
-  userTokenId String
-  type        TokenEventType
-  message     String
-  metadata    Json?
-  createdAt   DateTime       @default(now())
+model AuthEvent {
+  id                    String                @id @default(cuid())
+  platformAuthorizationId String
+  type                  AuthEventType
+  message               String
+  metadata              Json?
+  createdAt             DateTime              @default(now())
+  platformAuthorization PlatformAuthorization @relation(fields: [platformAuthorizationId], references: [id])
 
-  userToken UserToken @relation(fields: [userTokenId], references: [id])
-
-  @@index([userTokenId, createdAt])
+  @@index([platformAuthorizationId, createdAt])
 }
 
 model AuthSession {
-  id            String       @id @default(cuid())
-  providerId    String
-  userOpenId    String
-  state         String       @unique
-  codeVerifier  String?
-  returnContext String?
-  status        String       @default("pending")
-  expiresAt     DateTime
-  createdAt     DateTime     @default(now())
-  completedAt   DateTime?
+  id                String   @id @default(cuid())
+  providerId        String
+  userId            String?
+  platformAccountId String?
+  requestSubjectId  String
+  state             String   @unique
+  codeVerifier      String?
+  returnContext     String?
+  status            String   @default("pending")
+  expiresAt         DateTime
+  createdAt         DateTime @default(now())
+  completedAt       DateTime?
+  provider          Provider @relation(fields: [providerId], references: [id])
 
-  provider Provider @relation(fields: [providerId], references: [id])
-
-  @@index([providerId, userOpenId, status])
+  @@index([providerId, requestSubjectId, status])
 }
 
 model Alert {
-  id          String      @id @default(cuid())
-  userTokenId String?
-  level       AlertLevel
-  status      AlertStatus @default(open)
-  kind        String
-  message     String
-  createdAt   DateTime    @default(now())
-  resolvedAt  DateTime?
-
-  userToken UserToken? @relation(fields: [userTokenId], references: [id])
+  id                    String                 @id @default(cuid())
+  platformAuthorizationId String?
+  level                 AlertLevel
+  status                AlertStatus            @default(open)
+  kind                  String
+  message               String
+  createdAt             DateTime               @default(now())
+  resolvedAt            DateTime?
+  platformAuthorization PlatformAuthorization? @relation(fields: [platformAuthorizationId], references: [id])
 
   @@index([status, createdAt])
 }

@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>用户详情</title>
+    <style>
+      body { font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; margin: 24px; color: #18212a; }
+      h1, h2 { margin-bottom: 12px; }
+      .panel { border: 1px solid #d8e1ea; border-radius: 16px; padding: 20px; background: #fff; margin-bottom: 24px; }
+      table { border-collapse: collapse; width: 100%; margin-top: 12px; }
+      th, td { border: 1px solid #e6edf3; padding: 8px 10px; text-align: left; vertical-align: top; }
+      th { background: #f7fafc; }
+      form.inline { display: inline-block; margin-right: 8px; }
+      input, select, button { font: inherit; padding: 8px 10px; }
+      .row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+      .muted { color: #68768a; font-size: 14px; }
+      code { background: #f4f7fa; padding: 2px 6px; border-radius: 6px; }
+    </style>
+  </head>
+  <body>
+    <p><a href="/admin">返回管理后台</a></p>
+    {{#if user}}
+      <h1>{{user.displayName}}</h1>
+      <p class="muted">{{user.username}} / {{user.status}}</p>
+
+      <section class="panel">
+        <h2>添加平台账号映射</h2>
+        <form action="/admin/users/{{user.id}}/platform-accounts" method="post" class="row">
+          <select name="provider">
+            <option value="feishu">Feishu</option>
+          </select>
+          <input type="text" name="external_subject_id" placeholder="平台主体 ID（例如 open_id）" required />
+          <input type="text" name="display_name" placeholder="平台显示名" />
+          <button type="submit">添加映射</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>平台账号</h2>
+        <table>
+          <thead>
+            <tr><th>Provider</th><th>主体 ID</th><th>显示名</th><th>状态</th><th>操作</th></tr>
+          </thead>
+          <tbody>
+            {{#each user.platformAccounts}}
+              <tr>
+                <td>{{this.provider.displayName}}</td>
+                <td><code>{{this.externalSubjectId}}</code></td>
+                <td>{{this.displayName}}</td>
+                <td>{{#if this.enabled}}启用{{else}}禁用{{/if}}</td>
+                <td>
+                  {{#if this.enabled}}
+                    <form class="inline" action="/admin/platform-accounts/{{this.id}}/disable" method="post">
+                      <button type="submit">禁用</button>
+                    </form>
+                  {{else}}
+                    <form class="inline" action="/admin/platform-accounts/{{this.id}}/enable" method="post">
+                      <button type="submit">启用</button>
+                    </form>
+                  {{/if}}
+                </td>
+              </tr>
+            {{else}}
+              <tr><td colspan="5">暂无平台账号</td></tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Feishu Personal 授权</h2>
+        {{#each user.platformAuthorizations}}
+          {{#if (eq this.authKind "personal")}}
+            <p>
+              账号键：<strong>{{this.accountKey}}</strong><br />
+              状态：<strong>{{this.status}}</strong><br />
+              开关：<strong>{{#if this.enabled}}启用{{else}}关闭{{/if}}</strong>
+            </p>
+          {{/if}}
+        {{else}}
+          <p class="muted">尚未创建 personal 授权记录。</p>
+        {{/each}}
+        <form class="inline" action="/admin/users/{{user.id}}/personal-authorizations/feishu/enable" method="post">
+          <button type="submit">开启 Feishu Personal 授权</button>
+        </form>
+        <form class="inline" action="/admin/users/{{user.id}}/personal-authorizations/feishu/disable" method="post">
+          <button type="submit">关闭 Feishu Personal 授权</button>
+        </form>
+      </section>
+
+      <section class="panel">
+        <h2>最近事件</h2>
+        <table>
+          <thead>
+            <tr><th>时间</th><th>类型</th><th>消息</th></tr>
+          </thead>
+          <tbody>
+            {{#each events}}
+              <tr><td>{{this.createdAt}}</td><td>{{this.type}}</td><td>{{this.message}}</td></tr>
+            {{else}}
+              <tr><td colspan="3">暂无事件</td></tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>最近告警</h2>
+        <table>
+          <thead>
+            <tr><th>时间</th><th>级别</th><th>类型</th><th>消息</th></tr>
+          </thead>
+          <tbody>
+            {{#each alerts}}
+              <tr><td>{{this.createdAt}}</td><td>{{this.level}}</td><td>{{this.kind}}</td><td>{{this.message}}</td></tr>
+            {{else}}
+              <tr><td colspan="4">暂无告警</td></tr>
+            {{/each}}
+          </tbody>
+        </table>
+      </section>
+    {{else}}
+      <p>用户不存在。</p>
+    {{/if}}
+  </body>
+</html>
