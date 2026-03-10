@@ -33,6 +33,8 @@ const DEFAULT_PERSONAL_SCOPES = [
   'im:message.group_msg:get_as_user',
   'docx:document:readonly',
   'docs:document.content:read',
+  'drive:drive:readonly',
+  'space:document:retrieve',
   'wiki:node:read',
   'wiki:wiki:readonly',
   'minutes:minutes:readonly',
