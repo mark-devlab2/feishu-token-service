@@ -3,24 +3,7 @@ import react from '@vitejs/plugin-react';
 import path from 'node:path';
 
 export default defineConfig({
-  plugins: [
-    react({
-      babel: {
-        plugins: [
-          [
-            'import',
-            {
-              libraryName: '@arco-design/web-react',
-              libraryDirectory: 'es',
-              camel2DashComponentName: false,
-              style: 'css',
-            },
-            '@arco-design/web-react',
-          ],
-        ],
-      },
-    }),
-  ],
+  plugins: [react()],
   resolve: {
     dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
