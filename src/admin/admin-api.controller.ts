@@ -63,10 +63,11 @@ export class AdminApiController {
   }
 
   @Get('session/me')
-  @UseGuards(AdminSessionGuard)
-  async me(@Req() req: Request & { admin?: unknown }) {
+  async me(@Req() req: Request) {
+    const rawToken = req.cookies?.[AdminAuthService.COOKIE_NAME];
+    const admin = await this.adminAuthService.getSession(rawToken);
     return {
-      admin: req.admin,
+      admin,
     };
   }
 
