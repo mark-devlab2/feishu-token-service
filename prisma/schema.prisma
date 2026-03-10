@@ -39,6 +39,10 @@ enum AuthEventType {
   invalidated
   enabled
   disabled
+  token_invalidated
+  token_deleted
+  personal_authorization_enabled
+  personal_authorization_disabled
 }
 
 enum AlertLevel {

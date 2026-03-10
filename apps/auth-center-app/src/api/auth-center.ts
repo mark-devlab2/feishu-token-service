@@ -6,6 +6,9 @@ export type DashboardResponse = {
     linkedPlatformAccounts: number;
     enabledPersonalAuthorizations: number;
     openAlerts: number;
+    pendingPersonalAuthorizations: number;
+    tokenIssues: number;
+    disabledUsersWithBindings: number;
   };
   users: Array<{
     id: string;
@@ -27,6 +30,7 @@ export type DashboardResponse = {
       enabled: boolean;
       status: string;
       expiresAt?: string | null;
+      hasToken: boolean;
     }>;
   }>;
   appAuthorizations: Array<{
@@ -67,6 +71,9 @@ export type UserDetailResponse = {
     lastRefreshAt?: string | null;
     lastFailureAt?: string | null;
     failureReason?: string | null;
+    hasToken: boolean;
+    tokenAvailable: boolean;
+    tokenStatus: string;
   }>;
   events: Array<{ id: string; type: string; message: string; createdAt: string }>;
   alerts: Array<{ id: string; level: string; status: string; kind: string; message: string; createdAt: string }>;
@@ -116,5 +123,15 @@ export async function setPersonalAuthorizationEnabled(
 
 export async function setAppAuthorizationEnabled(provider: string, enabled: boolean) {
   const { data } = await http.post(`/app-authorizations/${provider}/${enabled ? 'enable' : 'disable'}`);
+  return data;
+}
+
+export async function invalidatePersonalToken(provider: string, userId: string) {
+  const { data } = await http.post(`/personal-authorizations/${provider}/${userId}/invalidate-token`);
+  return data;
+}
+
+export async function deletePersonalToken(provider: string, userId: string) {
+  const { data } = await http.post(`/personal-authorizations/${provider}/${userId}/delete-token`);
   return data;
 }

@@ -17,7 +17,6 @@ import IconCheckCircle from '@arco-design/web-react/icon/react-icon/IconCheckCir
 import IconExclamationCircle from '@arco-design/web-react/icon/react-icon/IconExclamationCircle';
 import IconLink from '@arco-design/web-react/icon/react-icon/IconLink';
 import IconPlus from '@arco-design/web-react/icon/react-icon/IconPlus';
-import IconUser from '@arco-design/web-react/icon/react-icon/IconUser';
 import { Link } from 'react-router-dom';
 import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge, useMobile } from '@ui';
 import {
@@ -56,18 +55,30 @@ export function AuthCenterDashboardPage() {
     if (!data) {
       return [];
     }
-    const noPersonal = data.users.filter((user: DashboardResponse['users'][number]) => user.personalAuthorizations.length === 0).length;
-    const disabledUsers = data.users.filter((user: DashboardResponse['users'][number]) => user.status !== 'active').length;
     return [
       {
-        title: '待完成个人授权',
-        description: noPersonal > 0 ? `有 ${noPersonal} 位用户尚未配置 Feishu personal 授权。` : '所有已添加用户都已配置 personal 授权记录。',
-        status: noPersonal > 0 ? 'warning' : 'done',
+        title: '待开启 personal 授权',
+        value: data.summary.pendingPersonalAuthorizations,
+        description:
+          data.summary.pendingPersonalAuthorizations > 0
+            ? '这些用户目前无法发起 personal user-scope 授权。'
+            : '所有已接入用户都已具备 personal 授权记录。',
       },
       {
-        title: '待关注用户状态',
-        description: disabledUsers > 0 ? `当前有 ${disabledUsers} 位用户处于禁用状态。` : '所有用户当前都处于启用状态。',
-        status: disabledUsers > 0 ? 'warning' : 'done',
+        title: '待处理 token 异常',
+        value: data.summary.tokenIssues,
+        description:
+          data.summary.tokenIssues > 0
+            ? '存在 token 缺失、过期或需要重新授权的用户。'
+            : '当前没有需要管理员介入的 token 异常。',
+      },
+      {
+        title: '禁用但仍有绑定',
+        value: data.summary.disabledUsersWithBindings,
+        description:
+          data.summary.disabledUsersWithBindings > 0
+            ? '这些用户已禁用，但仍保留平台映射或授权配置。'
+            : '禁用用户与已有绑定关系没有异常积压。',
       },
     ];
   }, [data]);
@@ -76,7 +87,7 @@ export function AuthCenterDashboardPage() {
     <Space direction="vertical" size={20} style={{ width: '100%' }}>
       <PageHeader
         title="授权中心"
-        description="管理可对话用户、平台账号映射、Feishu personal 授权和全局 App 授权。对话准入与个人授权是两层能力。"
+        description="先总览全局状态，再定位待处理用户，最后进入详情页执行授权与 token 控制。"
         extra={
           <Space wrap>
             <Button onClick={() => void reload()}>刷新数据</Button>
@@ -89,96 +100,105 @@ export function AuthCenterDashboardPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={12} lg={6}>
-          <MetricCard title="启用用户" value={data?.summary.activeUsers ?? '-'} extra="可正常与 OpenClaw 对话的用户数" />
+          <MetricCard title="启用用户" value={data?.summary.activeUsers ?? '-'} extra="当前允许与 OpenClaw 对话的用户" />
         </Col>
         <Col xs={12} lg={6}>
           <MetricCard title="平台账号映射" value={data?.summary.linkedPlatformAccounts ?? '-'} extra="已绑定的平台主体数量" />
         </Col>
         <Col xs={12} lg={6}>
-          <MetricCard title="已启用 personal 授权" value={data?.summary.enabledPersonalAuthorizations ?? '-'} extra="开启个人数据能力的用户数" />
+          <MetricCard title="已开启 personal 授权" value={data?.summary.enabledPersonalAuthorizations ?? '-'} extra="允许读取个人数据的用户数" />
         </Col>
         <Col xs={12} lg={6}>
-          <MetricCard title="待处理告警" value={data?.summary.openAlerts ?? '-'} extra="建议优先处理异常授权或刷新失败" />
+          <MetricCard title="待处理告警" value={data?.summary.openAlerts ?? '-'} extra="优先关注授权与刷新异常" />
         </Col>
       </Row>
 
-      <SectionCard title="待处理事项" description="优先展示需要你关注的状态，避免只盯着大表格找问题。">
+      <SectionCard title="待处理事项" description="优先聚焦需要管理员介入的对象，而不是直接钻进大表格。">
         <Row gutter={[16, 16]}>
-          {todoItems.map((item) => (
-            <Col xs={24} md={12} key={item.title}>
-              <Card bordered style={{ background: '#f9fbff' }}>
-                <Space align="start" size={12}>
-                  {item.status === 'done' ? (
-                    <IconCheckCircle style={{ color: 'var(--himark-success)', fontSize: 20 }} />
-                  ) : (
-                    <IconExclamationCircle style={{ color: 'var(--himark-warning)', fontSize: 20 }} />
-                  )}
-                  <div>
-                    <Typography.Text style={{ fontWeight: 600 }}>{item.title}</Typography.Text>
-                    <br />
-                    <Typography.Text type="secondary">{item.description}</Typography.Text>
-                  </div>
-                </Space>
-              </Card>
-            </Col>
-          ))}
+          {todoItems.map((item) => {
+            const isHealthy = item.value === 0;
+            return (
+              <Col xs={24} md={8} key={item.title}>
+                <Card bordered style={{ background: '#f9fbff', height: '100%' }}>
+                  <Space align="start" size={12}>
+                    {isHealthy ? (
+                      <IconCheckCircle style={{ color: 'var(--himark-success)', fontSize: 20 }} />
+                    ) : (
+                      <IconExclamationCircle style={{ color: 'var(--himark-warning)', fontSize: 20 }} />
+                    )}
+                    <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                      <Typography.Text style={{ fontWeight: 600 }}>{item.title}</Typography.Text>
+                      <Typography.Title heading={5} style={{ marginBottom: 0 }}>
+                        {item.value}
+                      </Typography.Title>
+                      <Typography.Text type="secondary">{item.description}</Typography.Text>
+                    </Space>
+                  </Space>
+                </Card>
+              </Col>
+            );
+          })}
         </Row>
       </SectionCard>
 
-      <SectionCard title="用户目录" description="只有已添加且已启用的用户，才允许与 OpenClaw 对话。">
+      <SectionCard title="用户目录" description="这里只承担定位入口。具体授权、token 和审计动作统一进入用户详情页处理。">
         {!data || data.users.length === 0 ? (
-          <EmptyState title="还没有可对话用户" description="先添加一个用户，并绑定对应的平台账号映射。" />
+          <EmptyState title="还没有可对话用户" description="先添加用户，再建立平台映射与 personal 授权。" />
         ) : isMobile ? (
           <List
             dataSource={data.users}
-            render={(item: DashboardResponse['users'][number]) => (
-              <Card bordered style={{ marginBottom: 12, background: '#fbfcff' }}>
-                <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                    <div>
-                      <Typography.Text style={{ fontWeight: 600 }}>{item.displayName || item.username}</Typography.Text>
-                      <br />
-                      <Typography.Text type="secondary">{item.username}</Typography.Text>
+            render={(item: DashboardResponse['users'][number]) => {
+              const authorization = item.personalAuthorizations[0];
+              const needsAttention =
+                !authorization ||
+                !authorization.enabled ||
+                authorization.status === 'expired' ||
+                authorization.status === 'reauthorization_required' ||
+                !authorization.hasToken;
+              return (
+                <Card bordered style={{ marginBottom: 12, background: '#fbfcff' }}>
+                  <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                      <div>
+                        <Typography.Text style={{ fontWeight: 600 }}>{item.displayName || item.username}</Typography.Text>
+                        <br />
+                        <Typography.Text type="secondary">{item.username}</Typography.Text>
+                      </div>
+                      <StatusBadge status={item.status} />
                     </div>
-                    <StatusBadge status={item.status} />
-                  </div>
-                  <Descriptions column={1} colon=" :" size="small">
-                    <Descriptions.Item label="超管">{item.isSuperAdmin ? '是' : '否'}</Descriptions.Item>
-                    <Descriptions.Item label="平台账号">
-                      {item.platformAccounts.length > 0 ? item.platformAccounts.map((account: DashboardResponse['users'][number]['platformAccounts'][number]) => (
-                        <div key={account.id}>
-                          {account.provider.displayName}：{account.displayName || account.externalSubjectId}
-                        </div>
-                      )) : '暂无'}
-                    </Descriptions.Item>
-                    <Descriptions.Item label="Feishu personal">
-                      {item.personalAuthorizations[0] ? (
-                        <Space direction="vertical" size={4}>
-                          <StatusBadge status={item.personalAuthorizations[0].status} />
-                          <Typography.Text type="secondary">
-                            {item.personalAuthorizations[0].enabled ? '已启用个人数据能力' : '已关闭个人数据能力'}
-                          </Typography.Text>
-                        </Space>
-                      ) : (
-                        '未配置'
-                      )}
-                    </Descriptions.Item>
-                  </Descriptions>
-                  <Space wrap>
-                    <Link to={`/auth-center/users/${item.id}`}>
-                      <Button type="primary">查看详情</Button>
-                    </Link>
-                    <Button status={item.status === 'active' ? 'warning' : 'success'} onClick={() => void (async () => {
-                      await setUserEnabled(item.id, item.status !== 'active');
-                      Message.success(item.status === 'active' ? '已禁用用户' : '已启用用户');
-                      await reload();
-                    })()}>
-                      {item.status === 'active' ? '禁用用户' : '启用用户'}
-                    </Button>
+                    <Descriptions column={1} colon=" :" size="small">
+                      <Descriptions.Item label="平台映射">{item.platformAccounts.length}</Descriptions.Item>
+                      <Descriptions.Item label="personal 授权">
+                        {authorization ? (authorization.enabled ? '已开启' : '已关闭') : '未配置'}
+                      </Descriptions.Item>
+                      <Descriptions.Item label="token 状态">
+                        {authorization ? <StatusBadge status={authorization.hasToken ? authorization.status : 'missing'} /> : '未配置'}
+                      </Descriptions.Item>
+                    </Descriptions>
+                    {needsAttention ? (
+                      <Typography.Text type="warning">该用户存在待处理授权或 token 状态。</Typography.Text>
+                    ) : null}
+                    <Space wrap>
+                      <Link to={`/auth-center/users/${item.id}`}>
+                        <Button type="primary">查看详情</Button>
+                      </Link>
+                      <Button
+                        status={item.status === 'active' ? 'warning' : 'success'}
+                        onClick={() =>
+                          void (async () => {
+                            await setUserEnabled(item.id, item.status !== 'active');
+                            Message.success(item.status === 'active' ? '已禁用用户' : '已启用用户');
+                            await reload();
+                          })()
+                        }
+                      >
+                        {item.status === 'active' ? '禁用用户' : '启用用户'}
+                      </Button>
+                    </Space>
                   </Space>
-                </Space>
-              </Card>
-            )}
+                </Card>
+              );
+            }}
           />
         ) : (
           <Table
@@ -201,31 +221,21 @@ export function AuthCenterDashboardPage() {
                 ),
               },
               {
-                title: '状态',
+                title: '对话准入',
                 render: (_: unknown, record: DashboardResponse['users'][number]) => <StatusBadge status={record.status} />,
               },
               {
-                title: '超管',
-                render: (_: unknown, record: DashboardResponse['users'][number]) => (record.isSuperAdmin ? '是' : '否'),
-              },
-              {
-                title: '平台账号',
+                title: '平台映射',
                 render: (_: unknown, record: DashboardResponse['users'][number]) =>
                   record.platformAccounts.length > 0 ? (
                     <Space direction="vertical" size={6}>
-                      {record.platformAccounts.map((account: DashboardResponse['users'][number]['platformAccounts'][number]) => (
+                      {record.platformAccounts.map((account) => (
                         <div key={account.id}>
                           <Typography.Text style={{ fontWeight: 500 }}>{account.provider.displayName}</Typography.Text>
                           <Typography.Text type="secondary">
                             {' '}
                             · {account.displayName || account.externalSubjectId}
                           </Typography.Text>
-                          {!account.enabled ? (
-                            <>
-                              {' '}
-                              <StatusBadge status="disabled" />
-                            </>
-                          ) : null}
                         </div>
                       ))}
                     </Space>
@@ -234,18 +244,30 @@ export function AuthCenterDashboardPage() {
                   ),
               },
               {
-                title: 'Feishu personal',
-                render: (_: unknown, record: DashboardResponse['users'][number]) =>
-                  record.personalAuthorizations[0] ? (
+                title: 'personal 授权',
+                render: (_: unknown, record: DashboardResponse['users'][number]) => {
+                  const authorization = record.personalAuthorizations[0];
+                  return authorization ? (
                     <Space direction="vertical" size={4}>
-                      <StatusBadge status={record.personalAuthorizations[0].status} />
+                      <StatusBadge status={authorization.enabled ? 'enabled' : 'disabled'} />
                       <Typography.Text type="secondary">
-                        {record.personalAuthorizations[0].enabled ? '已启用个人数据能力' : '已关闭个人数据能力'}
+                        {authorization.enabled ? '允许 personal user-scope' : '当前不会发起 personal 授权'}
                       </Typography.Text>
                     </Space>
                   ) : (
                     <Typography.Text type="secondary">未配置</Typography.Text>
-                  ),
+                  );
+                },
+              },
+              {
+                title: 'token 状态',
+                render: (_: unknown, record: DashboardResponse['users'][number]) => {
+                  const authorization = record.personalAuthorizations[0];
+                  if (!authorization) {
+                    return <Typography.Text type="secondary">未配置</Typography.Text>;
+                  }
+                  return <StatusBadge status={authorization.hasToken ? authorization.status : 'missing'} />;
+                },
               },
               {
                 title: '操作',
@@ -277,7 +299,7 @@ export function AuthCenterDashboardPage() {
 
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={12}>
-          <SectionCard title="全局 App 授权" description="App 授权是平台级共享能力，不和普通用户绑定。">
+          <SectionCard title="全局 App 授权" description="这里管理系统级共享能力，与个人 user token 生命周期分开。">
             {!data || data.appAuthorizations.length === 0 ? (
               <EmptyState title="暂无全局 App 授权" description="先启用 Feishu App 授权，供机器人和系统级能力使用。" />
             ) : (
@@ -309,7 +331,7 @@ export function AuthCenterDashboardPage() {
                         <Space direction="vertical" size={6}>
                           <StatusBadge status={item.status} />
                           <Typography.Text type="secondary">
-                            {item.enabled ? '当前可供系统级调用使用' : '当前不会参与任何系统级能力调用'}
+                            {item.enabled ? '当前可供系统级能力直接调用' : '当前不会参与任何系统级能力调用'}
                           </Typography.Text>
                         </Space>
                       }
@@ -320,10 +342,11 @@ export function AuthCenterDashboardPage() {
             )}
           </SectionCard>
         </Col>
+
         <Col xs={24} xl={12}>
-          <SectionCard title="最近告警" description="优先关注授权失效、刷新失败等异常。">
+          <SectionCard title="最近告警" description="只保留高优先级异常的快速视图，便于先发现问题。">
             {!data || data.alerts.length === 0 ? (
-              <EmptyState title="当前没有告警" description="授权中心运行正常时，这里会保持为空。" />
+              <EmptyState title="暂无告警" description="当前没有授权或刷新相关异常。" />
             ) : (
               <List
                 dataSource={data.alerts}
@@ -338,7 +361,7 @@ export function AuthCenterDashboardPage() {
                       }
                       description={
                         <Space direction="vertical" size={4}>
-                          <Typography.Text type="secondary">{item.message}</Typography.Text>
+                          <Typography.Text>{item.message}</Typography.Text>
                           <Typography.Text type="secondary">{new Date(item.createdAt).toLocaleString()}</Typography.Text>
                         </Space>
                       }
@@ -351,9 +374,9 @@ export function AuthCenterDashboardPage() {
         </Col>
       </Row>
 
-      <SectionCard title="最近授权事件" description="用于快速确认最近发生的授权、刷新、启停操作。">
+      <SectionCard title="最近授权事件" description="用于确认最近发生的授权、刷新、禁用或 token 管理动作。">
         {!data || data.events.length === 0 ? (
-          <EmptyState title="还没有授权事件" description="触发授权链接、回调成功、刷新或手动开关后，这里会显示记录。" />
+          <EmptyState title="暂无事件" description="执行授权开关或 token 控制后，这里会记录操作轨迹。" />
         ) : (
           <List
             dataSource={data.events}
@@ -376,7 +399,7 @@ export function AuthCenterDashboardPage() {
       </SectionCard>
 
       <Drawer
-        title="添加可对话用户"
+        title="添加用户"
         width={isMobile ? '100%' : 420}
         visible={drawerVisible}
         footer={null}
@@ -384,11 +407,11 @@ export function AuthCenterDashboardPage() {
         unmountOnExit
       >
         <Typography.Paragraph type="secondary">
-          添加用户只代表“允许与 OpenClaw 对话”。是否允许访问个人平台数据，还需要在用户详情页单独开启 personal 授权。
+          用户目录决定谁可以与 OpenClaw 对话。平台映射与 personal 授权可以在用户详情页继续补齐。
         </Typography.Paragraph>
         <Form
-          layout="vertical"
           form={form}
+          layout="vertical"
           onSubmit={async (values: { username: string; display_name?: string }) => {
             await createUser(values);
             Message.success('已添加用户');
@@ -398,7 +421,7 @@ export function AuthCenterDashboardPage() {
           }}
         >
           <Form.Item field="username" label="用户名" rules={[{ required: true, message: '请输入用户名' }]}>
-            <Input prefix={<IconUser />} placeholder="用于系统内部唯一标识，例如 mark" />
+            <Input placeholder="例如 mark" />
           </Form.Item>
           <Form.Item field="display_name" label="显示名">
             <Input placeholder="例如 马超" />

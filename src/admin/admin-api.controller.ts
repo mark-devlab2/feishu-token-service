@@ -12,6 +12,7 @@ import {
 import { Request, Response } from 'express';
 import { UserStatus } from '@prisma/client';
 import { DirectoryService } from '../directory/directory.service';
+import { TokenService } from '../token/token.service';
 import { AdminAuthService } from './admin-auth.service';
 import { AdminService } from './admin.service';
 import { AdminSessionGuard } from './admin-session.guard';
@@ -22,6 +23,7 @@ export class AdminApiController {
     private readonly adminAuthService: AdminAuthService,
     private readonly adminService: AdminService,
     private readonly directoryService: DirectoryService,
+    private readonly tokenService: TokenService,
   ) {}
 
   @Post('session/login')
@@ -156,6 +158,30 @@ export class AdminApiController {
       return { ok: false, reason: 'provider unsupported' };
     }
     return this.directoryService.setFeishuPersonalAuthorizationEnabled(userId, false);
+  }
+
+  @Post('personal-authorizations/:provider/:userId/invalidate-token')
+  @UseGuards(AdminSessionGuard)
+  async invalidatePersonalToken(
+    @Param('userId') userId: string,
+    @Param('provider') provider: string,
+  ) {
+    if (provider !== 'feishu') {
+      return { ok: false, reason: 'provider unsupported' };
+    }
+    return this.tokenService.invalidateByUserId(userId);
+  }
+
+  @Post('personal-authorizations/:provider/:userId/delete-token')
+  @UseGuards(AdminSessionGuard)
+  async deletePersonalToken(
+    @Param('userId') userId: string,
+    @Param('provider') provider: string,
+  ) {
+    if (provider !== 'feishu') {
+      return { ok: false, reason: 'provider unsupported' };
+    }
+    return this.tokenService.deleteByUserId(userId);
   }
 
   @Get('app-authorizations')

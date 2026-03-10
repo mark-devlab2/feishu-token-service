@@ -300,7 +300,32 @@ export class DirectoryService implements OnModuleInit {
       throw new Error('user not found');
     }
 
-    return this.prisma.platformAuthorization.upsert({
+    const existing = await this.prisma.platformAuthorization.findUnique({
+      where: {
+        providerId_authKind_accountKey: {
+          providerId: provider.id,
+          authKind: AuthorizationKind.personal,
+          accountKey: user.username,
+        },
+      },
+    });
+
+    const nextStatus = (() => {
+      if (!enabled) {
+        return existing?.status || AuthorizationStatus.expired;
+      }
+      if (!existing?.accessTokenEncrypted || !existing.expiresAt) {
+        return AuthorizationStatus.expired;
+      }
+      if (existing.status === AuthorizationStatus.reauthorization_required) {
+        return AuthorizationStatus.reauthorization_required;
+      }
+      return existing.expiresAt.getTime() > Date.now()
+        ? AuthorizationStatus.active
+        : AuthorizationStatus.expired;
+    })();
+
+    const authorization = await this.prisma.platformAuthorization.upsert({
       where: {
         providerId_authKind_accountKey: {
           providerId: provider.id,
@@ -311,7 +336,7 @@ export class DirectoryService implements OnModuleInit {
       update: {
         userId: user.id,
         enabled,
-        status: enabled ? AuthorizationStatus.expired : AuthorizationStatus.revoked,
+        status: nextStatus,
       },
       create: {
         providerId: provider.id,
@@ -322,6 +347,18 @@ export class DirectoryService implements OnModuleInit {
         status: enabled ? AuthorizationStatus.expired : AuthorizationStatus.revoked,
       },
     });
+
+    await this.prisma.authEvent.create({
+      data: {
+        platformAuthorizationId: authorization.id,
+        type: enabled ? 'personal_authorization_enabled' : 'personal_authorization_disabled',
+        message: enabled
+          ? `手动开启 Feishu personal 授权：${authorization.accountKey}`
+          : `手动关闭 Feishu personal 授权：${authorization.accountKey}`,
+      },
+    });
+
+    return authorization;
   }
 
   async setFeishuAppAuthorizationEnabled(enabled: boolean) {

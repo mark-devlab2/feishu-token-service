@@ -96,7 +96,7 @@ export class TokenService {
     await this.prisma.platformAuthorization.update({
       where: { id: authorization.id },
       data: {
-        status: AuthorizationStatus.revoked,
+        status: AuthorizationStatus.reauthorization_required,
         failureReason: 'manually invalidated',
       },
     });
@@ -104,8 +104,57 @@ export class TokenService {
     await this.prisma.authEvent.create({
       data: {
         platformAuthorizationId: authorization.id,
-        type: 'invalidated',
+        type: 'token_invalidated',
         message: `手动失效 Feishu personal 授权：${authorization.accountKey}`,
+      },
+    });
+
+    return { ok: true };
+  }
+
+  async invalidateByUserId(userId: string) {
+    const authorization = await this.getRequiredPersonalAuthorizationByUserId(userId);
+    await this.prisma.platformAuthorization.update({
+      where: { id: authorization.id },
+      data: {
+        status: AuthorizationStatus.reauthorization_required,
+        failureReason: 'manually invalidated',
+      },
+    });
+
+    await this.prisma.authEvent.create({
+      data: {
+        platformAuthorizationId: authorization.id,
+        type: 'token_invalidated',
+        message: `管理员手动失效 Feishu personal token：${authorization.accountKey}`,
+      },
+    });
+
+    return { ok: true };
+  }
+
+  async deleteByUserId(userId: string) {
+    const authorization = await this.getRequiredPersonalAuthorizationByUserId(userId);
+    await this.prisma.platformAuthorization.update({
+      where: { id: authorization.id },
+      data: {
+        accessTokenEncrypted: null,
+        refreshTokenEncrypted: null,
+        scopes: [],
+        expiresAt: null,
+        refreshExpiresAt: null,
+        lastRefreshAt: null,
+        lastFailureAt: null,
+        failureReason: 'manually deleted',
+        status: AuthorizationStatus.expired,
+      },
+    });
+
+    await this.prisma.authEvent.create({
+      data: {
+        platformAuthorizationId: authorization.id,
+        type: 'token_deleted',
+        message: `管理员手动删除 Feishu personal token：${authorization.accountKey}`,
       },
     });
 
@@ -259,6 +308,21 @@ export class TokenService {
     }
     if (!authorization || !authorization.enabled) {
       throw new NotFoundException('personal authorization not enabled');
+    }
+    return authorization;
+  }
+
+  private async getRequiredPersonalAuthorizationByUserId(userId: string) {
+    const provider = await this.directoryService.getOrCreateFeishuProvider();
+    const authorization = await this.prisma.platformAuthorization.findFirst({
+      where: {
+        providerId: provider.id,
+        authKind: AuthorizationKind.personal,
+        userId,
+      },
+    });
+    if (!authorization) {
+      throw new NotFoundException('personal authorization not found');
     }
     return authorization;
   }

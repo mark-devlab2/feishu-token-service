@@ -1,5 +1,5 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
-import { UserStatus } from '@prisma/client';
+import { AuthorizationStatus, UserStatus } from '@prisma/client';
 import { PrismaService } from '../common/services/prisma.service';
 import { DirectoryService } from '../directory/directory.service';
 
@@ -38,6 +38,26 @@ export class AdminService {
         ).length,
       0,
     );
+    const pendingPersonalAuthorizations = users.filter((user) => {
+      const authorization = user.platformAuthorizations.find((item) => item.authKind === 'personal');
+      return !authorization || !authorization.enabled;
+    }).length;
+    const tokenIssues = users.filter((user) => {
+      const authorization = user.platformAuthorizations.find((item) => item.authKind === 'personal');
+      return (
+        !!authorization &&
+        authorization.enabled &&
+        (authorization.status === AuthorizationStatus.expired ||
+          authorization.status === AuthorizationStatus.reauthorization_required ||
+          !authorization.accessTokenEncrypted)
+      );
+    }).length;
+    const disabledUsersWithBindings = users.filter((user) => {
+      const hasBindings =
+        user.platformAccounts.length > 0 ||
+        user.platformAuthorizations.some((item) => item.authKind === 'personal');
+      return user.status !== UserStatus.active && hasBindings;
+    }).length;
 
     return {
       summary: {
@@ -45,6 +65,9 @@ export class AdminService {
         linkedPlatformAccounts,
         enabledPersonalAuthorizations,
         openAlerts: alerts.filter((alert) => alert.status === 'open').length,
+        pendingPersonalAuthorizations,
+        tokenIssues,
+        disabledUsersWithBindings,
       },
       users: users.map((user) => ({
         id: user.id,
@@ -74,6 +97,7 @@ export class AdminService {
             enabled: authorization.enabled,
             status: authorization.status,
             expiresAt: authorization.expiresAt,
+            hasToken: !!authorization.accessTokenEncrypted,
           })),
       })),
       appAuthorizations: appAuthorizations.map((authorization) => ({
@@ -175,6 +199,12 @@ export class AdminService {
           lastRefreshAt: authorization.lastRefreshAt,
           lastFailureAt: authorization.lastFailureAt,
           failureReason: authorization.failureReason,
+          hasToken: !!authorization.accessTokenEncrypted,
+          tokenAvailable:
+            authorization.enabled &&
+            (authorization.status === AuthorizationStatus.active ||
+              authorization.status === AuthorizationStatus.expiring),
+          tokenStatus: this.getTokenStatus(authorization),
         })),
       events: events.map((event) => ({
         id: event.id,
@@ -191,5 +221,29 @@ export class AdminService {
         createdAt: alert.createdAt,
       })),
     };
+  }
+
+  private getTokenStatus(authorization: {
+    enabled: boolean;
+    status: AuthorizationStatus;
+    accessTokenEncrypted: string | null;
+    expiresAt: Date | null;
+  }) {
+    if (!authorization.enabled) {
+      return 'revoked';
+    }
+    if (!authorization.accessTokenEncrypted || !authorization.expiresAt) {
+      return 'missing';
+    }
+    if (authorization.status === AuthorizationStatus.reauthorization_required) {
+      return AuthorizationStatus.reauthorization_required;
+    }
+    if (authorization.expiresAt.getTime() <= Date.now()) {
+      return AuthorizationStatus.expired;
+    }
+    if (authorization.status === AuthorizationStatus.expiring) {
+      return AuthorizationStatus.expiring;
+    }
+    return AuthorizationStatus.active;
   }
 }
