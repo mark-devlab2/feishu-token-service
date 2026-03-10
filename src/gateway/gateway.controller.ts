@@ -26,6 +26,20 @@ export class GatewayController {
     return this.gatewayService.readMinutes(userOpenId, minutesToken);
   }
 
+  @Get('drive/files')
+  listDriveFiles(
+    @Query('user_open_id') userOpenId: string,
+    @Query('folder_token') folderToken?: string,
+    @Query('page_size') pageSize?: string,
+    @Query('page_token') pageToken?: string,
+  ) {
+    return this.gatewayService.listDriveFiles(userOpenId, {
+      folderToken,
+      pageSize: pageSize ? Number(pageSize) : 50,
+      pageToken,
+    });
+  }
+
   @Get('messages')
   listMessages(
     @Query('user_open_id') userOpenId: string,

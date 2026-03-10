@@ -126,6 +126,53 @@ export class FeishuProvider implements OAuthProvider {
     });
   }
 
+  async listDriveFiles(
+    userAccessToken: string,
+    input: {
+      folderToken?: string;
+      pageSize?: number;
+      pageToken?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      path: '/open-apis/drive/v1/files',
+      params: {
+        folder_token: input.folderToken,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+      },
+    });
+
+    const payload = (data || {}) as {
+      files?: Array<{
+        token?: string;
+        name?: string;
+        type?: string;
+        url?: string;
+        created_time?: string;
+        modified_time?: string;
+        owner_id?: string;
+      }>;
+      next_page_token?: string;
+       has_more?: boolean;
+    };
+
+    return {
+      files:
+        payload.files?.map((file) => ({
+          token: file.token || '',
+          name: file.name || '',
+          type: file.type || '',
+          url: file.url || '',
+          created_time: file.created_time || '',
+          modified_time: file.modified_time || '',
+          owner_id: file.owner_id || '',
+        })) || [],
+      next_page_token: payload.next_page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
   async listMessages(
     userAccessToken: string,
     input: {
@@ -330,7 +377,8 @@ export class FeishuProvider implements OAuthProvider {
     return (
       /^\/open-apis\/docx\/v1\/documents\/[^/]+\/raw_content$/.test(path) ||
       path === '/open-apis/wiki/v2/spaces/get_node' ||
-      /^\/open-apis\/minutes\/v1\/minutes\/[^/]+$/.test(path)
+      /^\/open-apis\/minutes\/v1\/minutes\/[^/]+$/.test(path) ||
+      path === '/open-apis/drive/v1/files'
     );
   }
 }

@@ -9,6 +9,12 @@ type MessageListInput = {
   pageToken?: string;
 };
 
+type DriveListInput = {
+  folderToken?: string;
+  pageSize: number;
+  pageToken?: string;
+};
+
 @Injectable()
 export class GatewayService {
   constructor(
@@ -57,6 +63,21 @@ export class GatewayService {
       source: {
         resourceType: 'minutes',
         minutesToken,
+      },
+      data,
+    };
+  }
+
+  async listDriveFiles(userOpenId: string, input: DriveListInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.listDriveFiles(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'drive',
+      userOpenId,
+      source: {
+        resourceType: 'drive',
+        folderToken: input.folderToken || null,
       },
       data,
     };
