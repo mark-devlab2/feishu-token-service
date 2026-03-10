@@ -71,13 +71,14 @@ export class TokenService {
     if (!access.allowed || !access.account || !authorization) {
       throw new NotFoundException('authorization not found');
     }
+    const effectiveStatus = this.getEffectiveTokenStatus(authorization);
 
     return {
       userOpenId,
       userId: access.account.user.id,
       username: access.account.user.username,
       accountKey: authorization.accountKey,
-      status: authorization.status,
+      status: effectiveStatus,
       enabled: authorization.enabled,
       scopes: authorization.scopes,
       expiresAt: authorization.expiresAt,
@@ -325,5 +326,29 @@ export class TokenService {
       throw new NotFoundException('personal authorization not found');
     }
     return authorization;
+  }
+
+  private getEffectiveTokenStatus(authorization: {
+    enabled: boolean;
+    status: AuthorizationStatus;
+    accessTokenEncrypted: string | null;
+    expiresAt: Date | null;
+  }) {
+    if (!authorization.enabled) {
+      return AuthorizationStatus.revoked;
+    }
+    if (!authorization.accessTokenEncrypted || !authorization.expiresAt) {
+      return AuthorizationStatus.expired;
+    }
+    if (authorization.status === AuthorizationStatus.reauthorization_required) {
+      return AuthorizationStatus.reauthorization_required;
+    }
+    if (authorization.expiresAt.getTime() <= Date.now()) {
+      return AuthorizationStatus.expired;
+    }
+    if (authorization.status === AuthorizationStatus.expiring) {
+      return AuthorizationStatus.expiring;
+    }
+    return AuthorizationStatus.active;
   }
 }

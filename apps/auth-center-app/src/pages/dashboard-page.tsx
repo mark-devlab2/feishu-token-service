@@ -172,7 +172,7 @@ export function AuthCenterDashboardPage() {
                         {authorization ? (authorization.enabled ? '已开启' : '已关闭') : '未配置'}
                       </Descriptions.Item>
                       <Descriptions.Item label="token 状态">
-                        {authorization ? <StatusBadge status={authorization.hasToken ? authorization.status : 'missing'} /> : '未配置'}
+                        {authorization ? <StatusBadge status={authorization.tokenStatus} /> : '未配置'}
                       </Descriptions.Item>
                     </Descriptions>
                     {needsAttention ? (
@@ -266,7 +266,7 @@ export function AuthCenterDashboardPage() {
                   if (!authorization) {
                     return <Typography.Text type="secondary">未配置</Typography.Text>;
                   }
-                  return <StatusBadge status={authorization.hasToken ? authorization.status : 'missing'} />;
+                  return <StatusBadge status={authorization.tokenStatus} />;
                 },
               },
               {

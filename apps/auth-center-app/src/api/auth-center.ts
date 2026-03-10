@@ -31,6 +31,7 @@ export type DashboardResponse = {
       status: string;
       expiresAt?: string | null;
       hasToken: boolean;
+      tokenStatus: string;
     }>;
   }>;
   appAuthorizations: Array<{

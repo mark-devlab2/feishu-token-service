@@ -98,6 +98,7 @@ export class AdminService {
             status: authorization.status,
             expiresAt: authorization.expiresAt,
             hasToken: !!authorization.accessTokenEncrypted,
+            tokenStatus: this.getTokenStatus(authorization),
           })),
       })),
       appAuthorizations: appAuthorizations.map((authorization) => ({
