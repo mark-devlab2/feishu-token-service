@@ -181,7 +181,10 @@ export class TokenService {
       }
 
       const refreshToken = this.cryptoService.decrypt(authorization.refreshTokenEncrypted);
-      const refreshed = await this.provider.refreshAccessToken(refreshToken);
+      const refreshed = await this.provider.refreshAccessToken(
+        refreshToken,
+        authorization.scopes.length > 0 ? authorization.scopes : this.provider.defaultScopes(),
+      );
 
       const updated = await this.prisma.platformAuthorization.update({
         where: { id: authorization.id },
