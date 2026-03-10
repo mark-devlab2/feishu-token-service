@@ -1,8 +1,8 @@
 FROM node:22-alpine AS deps
 
-WORKDIR /app/apps/admin-shell
+WORKDIR /app
 
-COPY apps/admin-shell/package.json apps/admin-shell/package-lock.json ./
+COPY package.json package-lock.json ./
 RUN npm ci
 
 FROM deps AS build
