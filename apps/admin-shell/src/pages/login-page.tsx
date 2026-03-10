@@ -1,5 +1,6 @@
 import { Button, Card, Form, Input, Space, Typography } from '@arco-design/web-react';
-import { IconLock, IconUser } from '@arco-design/web-react/icon';
+import IconLock from '@arco-design/web-react/icon/react-icon/IconLock';
+import IconUser from '@arco-design/web-react/icon/react-icon/IconUser';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
 

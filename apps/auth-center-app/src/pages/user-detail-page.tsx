@@ -12,7 +12,8 @@ import {
   Space,
   Typography,
 } from '@arco-design/web-react';
-import { IconArrowLeft, IconLink } from '@arco-design/web-react/icon';
+import IconArrowLeft from '@arco-design/web-react/icon/react-icon/IconArrowLeft';
+import IconLink from '@arco-design/web-react/icon/react-icon/IconLink';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge, useMobile } from '@ui';
 import {

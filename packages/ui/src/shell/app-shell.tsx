@@ -8,14 +8,12 @@ import {
   Space,
   Typography,
 } from '@arco-design/web-react';
-import {
-  IconApps,
-  IconDashboard,
-  IconMenuFold,
-  IconPoweroff,
-  IconSafe,
-  IconSettings,
-} from '@arco-design/web-react/icon';
+import IconApps from '@arco-design/web-react/icon/react-icon/IconApps';
+import IconDashboard from '@arco-design/web-react/icon/react-icon/IconDashboard';
+import IconMenuFold from '@arco-design/web-react/icon/react-icon/IconMenuFold';
+import IconPoweroff from '@arco-design/web-react/icon/react-icon/IconPoweroff';
+import IconSafe from '@arco-design/web-react/icon/react-icon/IconSafe';
+import IconSettings from '@arco-design/web-react/icon/react-icon/IconSettings';
 import { ADMIN_SUBTITLE, AdminMenuItem } from '@config';
 import { useMobile } from '../hooks/use-mobile';
 

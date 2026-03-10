@@ -13,13 +13,11 @@ import {
   Table,
   Typography,
 } from '@arco-design/web-react';
-import {
-  IconCheckCircle,
-  IconExclamationCircle,
-  IconLink,
-  IconPlus,
-  IconUser,
-} from '@arco-design/web-react/icon';
+import IconCheckCircle from '@arco-design/web-react/icon/react-icon/IconCheckCircle';
+import IconExclamationCircle from '@arco-design/web-react/icon/react-icon/IconExclamationCircle';
+import IconLink from '@arco-design/web-react/icon/react-icon/IconLink';
+import IconPlus from '@arco-design/web-react/icon/react-icon/IconPlus';
+import IconUser from '@arco-design/web-react/icon/react-icon/IconUser';
 import { Link } from 'react-router-dom';
 import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge, useMobile } from '@ui';
 import {

@@ -1,6 +1,8 @@
 import { Grid, Space, Typography } from '@arco-design/web-react';
 import { MetricCard, SectionCard } from '@ui';
-import { IconApps, IconSafe, IconSettings } from '@arco-design/web-react/icon';
+import IconApps from '@arco-design/web-react/icon/react-icon/IconApps';
+import IconSafe from '@arco-design/web-react/icon/react-icon/IconSafe';
+import IconSettings from '@arco-design/web-react/icon/react-icon/IconSettings';
 import { Link } from 'react-router-dom';
 
 const Row = Grid.Row;
