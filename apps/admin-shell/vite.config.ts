@@ -5,10 +5,14 @@ import path from 'node:path';
 export default defineConfig({
   plugins: [react()],
   resolve: {
+    dedupe: ['react', 'react-dom', 'react-router-dom'],
     alias: {
       '@config': path.resolve(__dirname, '../../packages/config/src'),
       '@ui': path.resolve(__dirname, '../../packages/ui/src'),
       '@auth-center': path.resolve(__dirname, '../auth-center-app/src'),
+      react: path.resolve(__dirname, 'node_modules/react'),
+      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
+      'react-router-dom': path.resolve(__dirname, 'node_modules/react-router-dom'),
     },
   },
   server: {
