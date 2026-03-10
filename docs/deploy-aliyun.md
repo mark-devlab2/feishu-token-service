@@ -180,6 +180,28 @@ docker compose up -d --build admin-web caddy
 docker compose up -d --build
 ```
 
+推荐在运维侧固定使用分目标部署，而不是默认全量更新：
+
+- 仅后端：`api`
+- 仅后台前端：`admin-web`
+- 前后端一并更新：`full`
+
+如果在 Mac mini 运行目录已同步 `openclaw-main-config`，可直接使用：
+
+```bash
+deploy-feishu-token-service.sh --target api
+deploy-feishu-token-service.sh --target admin-web
+deploy-feishu-token-service.sh --target full
+```
+
+默认行为：
+
+- 远程主机：`root@112.126.63.208`
+- 远程目录：`/root/services/feishu-token-service`
+- 自动执行 `git pull --ff-only`
+- 自动执行对应 `docker compose up -d --build ...`
+- 自动做基础健康检查
+
 ## 八、当前架构边界
 
 已经实现：

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import {
   Navigate,
   Outlet,
@@ -10,9 +10,33 @@ import { Spin } from '@arco-design/web-react';
 import { ADMIN_BRAND } from '@config';
 import { AppShell } from '@ui';
 import { authCenterRoutes, authCenterMenu } from '@auth-center';
-import { DashboardPage } from './pages/dashboard-page';
-import { LoginPage } from './pages/login-page';
 import { useAuth } from './lib/auth-context';
+
+const DashboardPage = lazy(() =>
+  import('./pages/dashboard-page').then((module) => ({
+    default: module.DashboardPage,
+  })),
+);
+
+const LoginPage = lazy(() =>
+  import('./pages/login-page').then((module) => ({
+    default: module.LoginPage,
+  })),
+);
+
+function RouteLoader({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense
+      fallback={
+        <div style={{ display: 'flex', minHeight: '100vh', alignItems: 'center', justifyContent: 'center' }}>
+          <Spin size={32} tip="页面加载中..." />
+        </div>
+      }
+    >
+      {children}
+    </Suspense>
+  );
+}
 
 function ProtectedLayout() {
   const { admin, loading, logout } = useAuth();
@@ -66,7 +90,11 @@ function LoginRoute() {
   if (admin) {
     return <Navigate to="/dashboard" replace />;
   }
-  return <LoginPage />;
+  return (
+    <RouteLoader>
+      <LoginPage />
+    </RouteLoader>
+  );
 }
 
 export const router = createBrowserRouter([
@@ -78,7 +106,14 @@ export const router = createBrowserRouter([
       {
         element: <ProtectedLayout />,
         children: [
-          { path: 'dashboard', element: <DashboardPage /> },
+          {
+            path: 'dashboard',
+            element: (
+              <RouteLoader>
+                <DashboardPage />
+              </RouteLoader>
+            ),
+          },
           ...authCenterRoutes,
           { path: '*', element: <Navigate to="/dashboard" replace /> },
         ],

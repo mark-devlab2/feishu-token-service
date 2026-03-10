@@ -1,19 +1,41 @@
-import React from 'react';
+import React, { Suspense, lazy } from 'react';
 import { Navigate } from 'react-router-dom';
 import { authCenterMenu } from './meta';
-import { AuthCenterDashboardPage } from './pages/dashboard-page';
-import { AuthCenterUserDetailPage } from './pages/user-detail-page';
+
+const AuthCenterDashboardPage = lazy(() =>
+  import('./pages/dashboard-page').then((module) => ({
+    default: module.AuthCenterDashboardPage,
+  })),
+);
+
+const AuthCenterUserDetailPage = lazy(() =>
+  import('./pages/user-detail-page').then((module) => ({
+    default: module.AuthCenterUserDetailPage,
+  })),
+);
 
 export { authCenterMenu };
+
+function AuthCenterRouteLoader({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={null}>{children}</Suspense>;
+}
 
 export const authCenterRoutes = [
   {
     path: 'auth-center',
-    element: <AuthCenterDashboardPage />,
+    element: (
+      <AuthCenterRouteLoader>
+        <AuthCenterDashboardPage />
+      </AuthCenterRouteLoader>
+    ),
   },
   {
     path: 'auth-center/users/:userId',
-    element: <AuthCenterUserDetailPage />,
+    element: (
+      <AuthCenterRouteLoader>
+        <AuthCenterUserDetailPage />
+      </AuthCenterRouteLoader>
+    ),
   },
   {
     path: 'auth-center/*',

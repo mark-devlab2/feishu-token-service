@@ -1,6 +1,15 @@
 node_modules
+apps/*/node_modules
 dist
+apps/*/dist
 .git
+.gitignore
 .DS_Store
+.playwright-cli
+*.log
 npm-debug.log*
+coverage
+docs
+.env
+.env.*
 pnpm-lock.yaml

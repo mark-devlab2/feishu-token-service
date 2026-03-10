@@ -27,5 +27,36 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined;
+          }
+
+          if (
+            id.includes('/react/') ||
+            id.includes('/react-dom/') ||
+            id.includes('/scheduler/') ||
+            id.includes('/react-router/') ||
+            id.includes('/react-router-dom/') ||
+            id.includes('/history/') ||
+            id.includes('/@remix-run/')
+          ) {
+            return 'react-vendor';
+          }
+
+          if (id.includes('@arco-design/web-react')) {
+            return 'arco-vendor';
+          }
+
+          if (id.includes('/axios/')) {
+            return 'network-vendor';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
   },
 });

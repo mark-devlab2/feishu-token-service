@@ -1,15 +1,11 @@
-FROM node:22-alpine AS build
-
-WORKDIR /app
-
-COPY package.json package-lock.json ./
-RUN npm install
-
-COPY apps/admin-shell/package.json ./apps/admin-shell/package.json
-RUN mkdir -p apps/admin-shell
+FROM node:22-alpine AS deps
 
 WORKDIR /app/apps/admin-shell
-RUN npm install
+
+COPY apps/admin-shell/package.json apps/admin-shell/package-lock.json ./
+RUN npm ci
+
+FROM deps AS build
 
 WORKDIR /app
 COPY apps/admin-shell ./apps/admin-shell
