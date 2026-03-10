@@ -168,6 +168,11 @@ docker compose up -d --build api
 docker compose exec api npx prisma db push
 ```
 
+说明：
+
+- `api` 容器启动时不再自动执行 `prisma db push`
+- schema 同步固定在部署步骤里显式执行一次，避免服务器重启时因为数据库变更竞态导致 `api` 启动失败
+
 ### 更新后台前端
 
 ```bash

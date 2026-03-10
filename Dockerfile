@@ -28,4 +28,4 @@ COPY --from=build /app/dist ./dist
 
 EXPOSE 3080
 
-CMD ["sh", "-c", "npx prisma db push && node dist/main"]
+CMD ["node", "dist/main"]
