@@ -1,235 +1,167 @@
 # 阿里云部署说明
 
-本文档对应当前这套部署结构：
+本文档描述 `feishu-token-service` 的标准生产部署形态，已经从“服务器源码仓 + 远端 build”切换为“GitHub Actions + GHCR + 服务器 pull 镜像重启”。
 
-- `token.himark.me`
-  - 授权、回调、Gateway、健康检查
-- `admin.himark.me`
-  - 统一后台壳站
-  - 当前首个子应用：`/auth-center`
+## 一、职责边界
 
-## 一、部署目标
+- 服务仓 `feishu-token-service`
+  - 保留 Dockerfile、测试命令、`.deploy/build.yaml`
+  - `push main` 触发发布
 
-阿里云上最终运行这些容器：
+- 平台仓 `aliyun-deploy-platform`
+  - 承载 reusable workflows
+  - 承载 `deploy/rollback/bootstrap` 脚本
+  - 承载生产 compose 模板与服务注册表
 
-- `api`
-  - NestJS 后端
-- `admin-web`
-  - 统一后台前端
-- `postgres`
-  - 数据库
-- `redis`
-  - 缓存与辅助状态
-- `caddy`
-  - HTTPS、域名入口与路由分流
+- 阿里云服务器
+  - 只保留平台仓和运行配置
+  - 不再保留 `/root/services/feishu-token-service` 应用源码仓
+  - 不再执行 `docker build`
 
-## 二、部署目录
+## 二、标准发布流程
 
-建议目录：
+1. 向 `main` push 代码
+2. GitHub Actions 读取 `.deploy/build.yaml`
+3. 运行 `npm test`
+4. 构建并推送：
+   - `ghcr.io/mark-devlab2/feishu-token-service-api:sha-<gitsha>`
+   - `ghcr.io/mark-devlab2/feishu-token-service-admin-web:sha-<gitsha>`
+5. GitHub Actions SSH 到阿里云
+6. 阿里云服务器拉取平台仓并执行：
+   - `docker compose pull`
+   - `docker compose up -d`
+   - `docker compose exec -T api npx prisma db push`（`api/full`）
+   - 健康检查
+
+## 三、远端目录
+
+默认远端平台目录：
 
 ```text
-/root/services/feishu-token-service
+/opt/aliyun-deploy-platform
 ```
 
-## 三、部署前准备
+`feishu-token-service` 运行时文件位于：
 
-### 1. 域名解析
-
-请确保：
-
-- `token.himark.me` -> 阿里云公网 IP
-- `admin.himark.me` -> 阿里云公网 IP
-
-### 2. 环境变量
-
-从 `.env.aliyun.example` 复制一份：
-
-```bash
-cp .env.aliyun.example .env
+```text
+/opt/aliyun-deploy-platform/runtime/feishu-token-service
 ```
 
-至少补齐这些值：
+至少包括：
+
+- `service.env`
+- `compose.env`
+- `releases/current.json`
+- `releases/previous.json`
+
+## 四、生产 compose
+
+生产 compose 已经迁移到平台仓：
+
+- `aliyun-deploy-platform/services/feishu-token-service/compose.prod.yml`
+
+与本仓库根目录 `docker-compose.yml` 的职责不同：
+
+- 根目录 `docker-compose.yml`
+  - 继续用于本地开发和本地联调
+- 平台仓 `compose.prod.yml`
+  - 只用于生产镜像部署
+  - 业务容器统一使用 `image:`
+
+## 五、部署目标
+
+平台层继续保留这三个目标语义：
+
+- `api`
+  - pull `api`
+  - `up -d api`
+  - 执行 `npx prisma db push`
+  - 检查 `https://token.himark.me/health`
+
+- `admin-web`
+  - pull `admin-web`
+  - `up -d admin-web caddy`
+  - 检查 `https://admin.himark.me/login`
+
+- `full`
+  - pull `api admin-web`
+  - `up -d api admin-web caddy`
+  - 执行 `npx prisma db push`
+  - 检查两个健康地址
+
+## 六、首次初始化
+
+### 1. 平台仓
+
+在阿里云服务器上准备平台仓目录，并确保服务器能够拉取平台仓。
+
+### 2. 运行时 env
+
+以平台仓里的样例文件为起点：
+
+```text
+aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
+```
+
+复制到远端：
+
+```text
+/opt/aliyun-deploy-platform/runtime/feishu-token-service/service.env
+```
+
+至少补齐：
 
 - `DATABASE_URL`
 - `TOKEN_ENCRYPTION_KEY`
 - `INTERNAL_API_KEY`
 - `ADMIN_USERNAME`
 - `ADMIN_PASSWORD`
-- `ADMIN_SESSION_TTL_HOURS`
-- `ADMIN_SHELL_URL`
-- `ADMIN_WEB_ORIGINS`
 - `FEISHU_APP_ID`
 - `FEISHU_APP_SECRET`
 - `FEISHU_REDIRECT_URI`
 
-推荐值：
+## 七、GitHub Secrets
 
-- `ADMIN_SHELL_URL=https://admin.himark.me/auth-center`
-- `ADMIN_WEB_ORIGINS=https://admin.himark.me`
-- `FEISHU_REDIRECT_URI=https://token.himark.me/auth/feishu/callback`
+服务仓需要以下 secrets 才能自动部署：
 
-## 四、首次部署
+- `ALIYUN_HOST`
+- `ALIYUN_SSH_USER`
+- `ALIYUN_SSH_PRIVATE_KEY`
+- `GHCR_PULL_USERNAME`
+- `GHCR_PULL_TOKEN`
 
-### 1. 上传代码
+可选：
 
-把以下内容同步到服务器：
+- `ALIYUN_SSH_PORT`
+- `ALIYUN_SSH_KNOWN_HOSTS`
+- `PLATFORM_GIT_URL`
+- `REMOTE_PLATFORM_DIR`
 
-- `apps/`
-- `packages/`
-- `prisma/`
-- `src/`
-- `views/`
-- `Dockerfile`
-- `apps/admin-web.Dockerfile`
-- `docker-compose.yml`
-- `Caddyfile`
-- `package.json`
-- `package-lock.json`
-- `nest-cli.json`
-- `tsconfig.json`
-- `.env`
+## 八、手动发布与回滚
 
-### 2. 启动服务
+自动发布是主路径。如果需要手动触发，可继续使用运维侧兼容入口：
 
 ```bash
-docker compose up -d --build
+deploy-feishu-token-service.sh --target api --image-tag sha-<gitsha>
+deploy-feishu-token-service.sh --target admin-web --image-tag sha-<gitsha>
+deploy-feishu-token-service.sh --target full --image-tag sha-<gitsha>
 ```
 
-### 3. 初始化数据库结构
+这个入口现在只会：
 
-如果容器内尚未自动完成，请执行：
+- 拉取平台仓
+- 调用平台脚本
+- pull 对应镜像
+- 重启服务
 
-```bash
-docker compose exec api npx prisma db push
-```
+不会再做远端源码 `git pull` 和 `docker build`
 
-## 五、验证方式
-
-### 1. 后端健康检查
-
-```bash
-curl -fsS http://127.0.0.1:3080/health
-```
-
-期望返回：
-
-```json
-{"status":"ok"}
-```
-
-### 2. 公网健康检查
-
-- [https://token.himark.me/health](https://token.himark.me/health)
-
-### 3. 统一后台入口
-
-- [https://admin.himark.me](https://admin.himark.me)
-
-期望行为：
-
-- 未登录自动进入 `/login`
-- 登录后进入后台首页
-- 可跳转到 `/auth-center`
-
-### 4. 旧入口兼容
-
-访问：
-
-- [https://token.himark.me/admin](https://token.himark.me/admin)
-
-期望行为：
-
-- 跳转到 `https://admin.himark.me/auth-center`
-
-## 六、Caddy 路由说明
-
-当前路由规则：
-
-- `token.himark.me`
-  - `/admin` 和 `/admin/*` -> 301/308 跳转到 `admin.himark.me/auth-center`
-  - 其余请求 -> `api:3080`
-
-- `admin.himark.me`
-  - `/admin-api/*` -> `api:3080`
-  - 其余请求 -> `admin-web:80`
-
-这样可以保证：
-
-- 后端 API 继续独立
-- 前端后台壳站独立
-- 统一后台通过单独域名承载
-
-## 七、前端与后端更新流程
-
-### 更新后端或 Prisma
-
-```bash
-docker compose up -d --build api
-docker compose exec api npx prisma db push
-```
-
-说明：
-
-- `api` 容器启动时不再自动执行 `prisma db push`
-- schema 同步固定在部署步骤里显式执行一次，避免服务器重启时因为数据库变更竞态导致 `api` 启动失败
-
-### 更新后台前端
-
-```bash
-docker compose up -d --build admin-web caddy
-```
-
-### 全量更新
-
-```bash
-docker compose up -d --build
-```
-
-推荐在运维侧固定使用分目标部署，而不是默认全量更新：
-
-- 仅后端：`api`
-- 仅后台前端：`admin-web`
-- 前后端一并更新：`full`
-
-如果在 Mac mini 运行目录已同步 `openclaw-main-config`，可直接使用：
-
-```bash
-deploy-feishu-token-service.sh --target api
-deploy-feishu-token-service.sh --target admin-web
-deploy-feishu-token-service.sh --target full
-```
-
-默认行为：
-
-- 远程主机：`root@112.126.63.208`
-- 远程目录：`/root/services/feishu-token-service`
-- 自动执行 `git pull --ff-only`
-- 自动执行对应 `docker compose up -d --build ...`
-- 自动做基础健康检查
-
-## 八、当前架构边界
-
-已经实现：
-
-- `admin.himark.me` 统一后台壳站
-- 授权中心子应用
-- 超管登录与 Session
-- 桌面端与 H5 后台
-
-当前不做：
-
-- 微前端框架
-- 普通用户后台
-- 复杂角色权限
-- 邮箱重置密码
-
-## 九、建议检查项
+## 九、验证方式
 
 每次部署后至少检查：
 
-1. `token.himark.me/health` 是否正常
-2. `admin.himark.me/login` 是否可打开
-3. 登录后是否能看到首页数据
-4. `/admin-api/session/me` 是否返回当前超管
-5. `/auth/feishu/callback` 是否仍可用
-6. OpenClaw 与授权中心的 allowlist / token 状态查询是否不受影响
+1. [https://token.himark.me/health](https://token.himark.me/health)
+2. [https://admin.himark.me/login](https://admin.himark.me/login)
+3. `/admin-api/session/me` 是否仍返回当前超管
+4. `/auth/feishu/callback` 是否仍可用
+5. Feishu personal auth、drive root list、docs/wiki/minutes/messages 是否继续正常

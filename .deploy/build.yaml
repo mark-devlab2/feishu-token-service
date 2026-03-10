@@ -1,0 +1,27 @@
+{
+  "serviceId": "feishu-token-service",
+  "registry": {
+    "host": "ghcr.io",
+    "owner": "mark-devlab2"
+  },
+  "test": {
+    "run": "npm test"
+  },
+  "images": [
+    {
+      "name": "api",
+      "image": "feishu-token-service-api",
+      "context": ".",
+      "dockerfile": "Dockerfile"
+    },
+    {
+      "name": "admin-web",
+      "image": "feishu-token-service-admin-web",
+      "context": ".",
+      "dockerfile": "apps/admin-web.Dockerfile"
+    }
+  ],
+  "deploy": {
+    "defaultTarget": "full"
+  }
+}
