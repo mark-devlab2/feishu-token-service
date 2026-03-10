@@ -14,7 +14,7 @@ import {
 } from '@arco-design/web-react';
 import { IconArrowLeft, IconLink } from '@arco-design/web-react/icon';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge } from '@ui';
+import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge, useMobile } from '@ui';
 import {
   addPlatformAccount,
   getUserDetail,
@@ -33,8 +33,7 @@ export function AuthCenterUserDetailPage() {
   const [data, setData] = useState<UserDetailResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const breakpoints = Grid.useBreakpoint();
-  const isMobile = !breakpoints.md;
+  const isMobile = useMobile();
   const [form] = Form.useForm();
 
   const reload = async () => {

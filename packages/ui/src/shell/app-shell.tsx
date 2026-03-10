@@ -3,7 +3,6 @@ import {
   Avatar,
   Button,
   Drawer,
-  Grid,
   Layout,
   Menu,
   Space,
@@ -18,6 +17,7 @@ import {
   IconSettings,
 } from '@arco-design/web-react/icon';
 import { ADMIN_SUBTITLE, AdminMenuItem } from '@config';
+import { useMobile } from '../hooks/use-mobile';
 
 const { Header, Content, Sider } = Layout;
 
@@ -46,8 +46,7 @@ export function AppShell({
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
-  const breakpoints = Grid.useBreakpoint();
-  const isMobile = !breakpoints.md;
+  const isMobile = useMobile();
   const selectedKey = useMemo(
     () => menus.find((menu) => currentPath.startsWith(menu.path))?.key || 'dashboard',
     [currentPath, menus],

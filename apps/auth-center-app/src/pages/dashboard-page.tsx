@@ -21,7 +21,7 @@ import {
   IconUser,
 } from '@arco-design/web-react/icon';
 import { Link } from 'react-router-dom';
-import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge } from '@ui';
+import { EmptyState, MetricCard, PageHeader, SectionCard, StatusBadge, useMobile } from '@ui';
 import {
   DashboardResponse,
   createUser,
@@ -37,8 +37,7 @@ export function AuthCenterDashboardPage() {
   const [data, setData] = useState<DashboardResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [drawerVisible, setDrawerVisible] = useState(false);
-  const breakpoints = Grid.useBreakpoint();
-  const isMobile = !breakpoints.md;
+  const isMobile = useMobile();
   const [form] = Form.useForm();
 
   const reload = async () => {

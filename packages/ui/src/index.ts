@@ -4,3 +4,4 @@ export * from './components/section-card';
 export * from './components/metric-card';
 export * from './components/status-badge';
 export * from './components/empty-state';
+export * from './hooks/use-mobile';
