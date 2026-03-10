@@ -15,6 +15,44 @@ type DriveListInput = {
   pageToken?: string;
 };
 
+type MessageSearchInput = {
+  query: string;
+  fromIds?: string[];
+  chatIds?: string[];
+  messageType?: string;
+  fromType?: string;
+  atChatterIds?: string[];
+  startTime?: string;
+  endTime?: string;
+  pageSize?: number;
+  pageToken?: string;
+  userIdType?: string;
+};
+
+type TaskListInput = {
+  completed?: boolean;
+  pageSize?: number;
+  pageToken?: string;
+  type?: string;
+  userIdType?: string;
+};
+
+type TaskCreateInput = {
+  summary: string;
+  description?: string;
+  due?: {
+    timestamp?: string;
+    is_all_day?: boolean;
+  };
+  start?: {
+    timestamp?: string;
+    is_all_day?: boolean;
+  };
+  clientToken?: string;
+  members?: Array<Record<string, unknown>>;
+  userIdType?: string;
+};
+
 @Injectable()
 export class GatewayService {
   constructor(
@@ -109,6 +147,50 @@ export class GatewayService {
       source: {
         resourceType: 'message',
         messageId,
+      },
+      data,
+    };
+  }
+
+  async searchMessages(userOpenId: string, input: MessageSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.searchMessages(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'messages.search',
+      userOpenId,
+      source: {
+        resourceType: 'messages.search',
+        query: input.query,
+      },
+      data,
+    };
+  }
+
+  async listTasks(userOpenId: string, input: TaskListInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.listTasks(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'tasks.list',
+      userOpenId,
+      source: {
+        resourceType: 'tasks.list',
+        type: input.type || 'my_tasks',
+      },
+      data,
+    };
+  }
+
+  async createTask(userOpenId: string, input: TaskCreateInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.createTask(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'tasks.create',
+      userOpenId,
+      source: {
+        resourceType: 'tasks.create',
       },
       data,
     };

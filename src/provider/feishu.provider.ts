@@ -29,6 +29,8 @@ const DEFAULT_PERSONAL_SCOPES = [
   'im:chat:readonly',
   'im:message:readonly',
   'search:message',
+  'task:task:read',
+  'task:task:write',
   'im:message.p2p_msg:get_as_user',
   'im:message.group_msg:get_as_user',
   'docx:document:readonly',
@@ -195,10 +197,161 @@ export class FeishuProvider implements OAuthProvider {
     });
   }
 
+  async searchMessages(
+    userAccessToken: string,
+    input: {
+      query: string;
+      fromIds?: string[];
+      chatIds?: string[];
+      messageType?: string;
+      fromType?: string;
+      atChatterIds?: string[];
+      startTime?: string;
+      endTime?: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/search/v2/message',
+      params: {
+        user_id_type: input.userIdType,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+      },
+      data: {
+        query: input.query,
+        from_ids: input.fromIds,
+        chat_ids: input.chatIds,
+        message_type: input.messageType,
+        from_type: input.fromType,
+        at_chatter_ids: input.atChatterIds,
+        start_time: input.startTime,
+        end_time: input.endTime,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: string[];
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
   async getMessage(userAccessToken: string, messageId: string) {
     return this.requestWithUserAccessToken(userAccessToken, {
       path: `/open-apis/im/v1/messages/${messageId}`,
     });
+  }
+
+  async listTasks(
+    userAccessToken: string,
+    input: {
+      completed?: boolean;
+      pageSize?: number;
+      pageToken?: string;
+      type?: string;
+      userIdType?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      path: '/open-apis/task/v2/tasks',
+      params: {
+        completed: typeof input.completed === 'boolean' ? String(input.completed) : undefined,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+        type: input.type,
+        user_id_type: input.userIdType,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<{
+        guid?: string;
+        summary?: string;
+        description?: string;
+        completed?: boolean;
+        due?: {
+          timestamp?: string;
+          is_all_day?: boolean;
+        };
+      }>;
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items:
+        payload.items?.map((task) => ({
+          guid: task.guid || '',
+          summary: task.summary || '',
+          description: task.description || '',
+          completed: Boolean(task.completed),
+          due: task.due || null,
+        })) || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
+  async createTask(
+    userAccessToken: string,
+    input: {
+      summary: string;
+      description?: string;
+      due?: {
+        timestamp?: string;
+        is_all_day?: boolean;
+      };
+      start?: {
+        timestamp?: string;
+        is_all_day?: boolean;
+      };
+      clientToken?: string;
+      members?: Array<Record<string, unknown>>;
+      userIdType?: string;
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/task/v2/tasks',
+      params: {
+        user_id_type: input.userIdType,
+      },
+      data: {
+        summary: input.summary,
+        description: input.description,
+        due: input.due,
+        start: input.start,
+        client_token: input.clientToken,
+        members: input.members,
+      },
+    });
+
+    const payload = (data || {}) as {
+      task?: {
+        guid?: string;
+        summary?: string;
+        description?: string;
+        completed?: boolean;
+        due?: {
+          timestamp?: string;
+          is_all_day?: boolean;
+        };
+      };
+    };
+
+    return {
+      task: payload.task || null,
+    };
   }
 
   private async fetchAppAccessToken(): Promise<string> {

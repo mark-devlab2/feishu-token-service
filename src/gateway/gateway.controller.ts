@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
 import { ApiKeyGuard } from '../common/guards/api-key.guard';
 import { GatewayService } from './gateway.service';
 
@@ -59,5 +59,87 @@ export class GatewayController {
   @Get('messages/:message_id')
   getMessage(@Param('message_id') messageId: string, @Query('user_open_id') userOpenId: string) {
     return this.gatewayService.getMessage(userOpenId, messageId);
+  }
+
+  @Post('search/messages')
+  searchMessages(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      fromIds?: string[];
+      chatIds?: string[];
+      messageType?: string;
+      fromType?: string;
+      atChatterIds?: string[];
+      startTime?: string;
+      endTime?: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    return this.gatewayService.searchMessages(body.userOpenId, {
+      query: body.query,
+      fromIds: body.fromIds,
+      chatIds: body.chatIds,
+      messageType: body.messageType,
+      fromType: body.fromType,
+      atChatterIds: body.atChatterIds,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      pageSize: body.pageSize || 20,
+      pageToken: body.pageToken,
+      userIdType: body.userIdType || 'open_id',
+    });
+  }
+
+  @Get('tasks')
+  listTasks(
+    @Query('user_open_id') userOpenId: string,
+    @Query('completed') completed?: string,
+    @Query('page_size') pageSize?: string,
+    @Query('page_token') pageToken?: string,
+    @Query('type') type?: string,
+    @Query('user_id_type') userIdType?: string,
+  ) {
+    return this.gatewayService.listTasks(userOpenId, {
+      completed: completed === undefined ? undefined : completed === 'true',
+      pageSize: pageSize ? Number(pageSize) : 20,
+      pageToken,
+      type: type || 'my_tasks',
+      userIdType: userIdType || 'open_id',
+    });
+  }
+
+  @Post('tasks')
+  createTask(
+    @Body()
+    body: {
+      userOpenId: string;
+      summary: string;
+      description?: string;
+      due?: {
+        timestamp?: string;
+        is_all_day?: boolean;
+      };
+      start?: {
+        timestamp?: string;
+        is_all_day?: boolean;
+      };
+      clientToken?: string;
+      members?: Array<Record<string, unknown>>;
+      userIdType?: string;
+    },
+  ) {
+    return this.gatewayService.createTask(body.userOpenId, {
+      summary: body.summary,
+      description: body.description,
+      due: body.due,
+      start: body.start,
+      clientToken: body.clientToken,
+      members: body.members,
+      userIdType: body.userIdType || 'open_id',
+    });
   }
 }
