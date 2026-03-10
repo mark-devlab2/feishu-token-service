@@ -5,6 +5,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+RUN mkdir -p /app/apps/admin-shell
+WORKDIR /app/apps/admin-shell
+COPY apps/admin-shell/package.json apps/admin-shell/package-lock.json ./
+RUN npm ci
+
 FROM deps AS build
 
 WORKDIR /app
