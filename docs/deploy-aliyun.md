@@ -2,7 +2,7 @@
 
 本文档描述 `feishu-token-service` 的标准生产部署形态，已经从“服务器源码仓 + 远端 build”切换为“GitHub Actions 构建 + 镜像仓 + 服务器 pull 镜像重启”。
 
-当前现网为了兼容已经跑通的生产链路，仍以 `GHCR` 为生产镜像源；平台已经具备 `ACR-first` 能力，待配置 `ACR_USERNAME` / `ACR_PASSWORD` 后，把 `.deploy/build.yaml` 和平台仓 `deploy.yaml` 的 `productionRegistry` 切到 `acr` 即可。
+当前现网主路径已经切到 `ACR-first`：GitHub Actions 构建镜像并推送到 `crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/*`，阿里云服务器只从 `ACR` pull。`GHCR` 继续保留为兼容镜像源，便于短期回退和比对，但不再是生产默认拉取路径。
 
 ## 一、职责边界
 
@@ -27,9 +27,9 @@
 2. GitHub Actions 读取 `.deploy/build.yaml`
 3. 运行 `npm test`
 4. 构建并推送镜像：
-   - 当前现网兼容：`ghcr.io/mark-devlab2/feishu-token-service-api:sha-<gitsha>`
-   - 当前现网兼容：`ghcr.io/mark-devlab2/feishu-token-service-admin-web:sha-<gitsha>`
-   - 计划生产主路径：`registry.cn-beijing.aliyuncs.com/mark-devlab2/feishu-token-service-*:sha-<gitsha>`
+   - 生产主路径：`crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/feishu-token-service-api:sha-<gitsha>`
+   - 生产主路径：`crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/feishu-token-service-admin-web:sha-<gitsha>`
+   - 兼容镜像源：`ghcr.io/mark-devlab2/feishu-token-service-*:sha-<gitsha>`
 5. GitHub Actions SSH 到阿里云
 6. 阿里云服务器拉取平台仓并执行：
    - `docker compose pull`
@@ -126,13 +126,13 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 
 ## 七、GitHub Secrets
 
-当前现网兼容阶段需要以下 secrets 才能自动部署：
+当前生产最小 secrets 集合：
 
 - `ALIYUN_HOST`
 - `ALIYUN_SSH_USER`
 - `ALIYUN_SSH_PRIVATE_KEY`
-- `GHCR_PULL_USERNAME`
-- `GHCR_PULL_TOKEN`
+- `ACR_USERNAME`
+- `ACR_PASSWORD`
 
 可选：
 
@@ -140,14 +140,10 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 - `ALIYUN_SSH_KNOWN_HOSTS`
 - `PLATFORM_GIT_URL`
 - `REMOTE_PLATFORM_DIR`
+- `GHCR_PULL_USERNAME`
+- `GHCR_PULL_TOKEN`
 
-切换到 ACR-first 后，Secrets 最小集合应收敛为：
-
-- `ALIYUN_HOST`
-- `ALIYUN_SSH_USER`
-- `ALIYUN_SSH_PRIVATE_KEY`
-- `ACR_USERNAME`
-- `ACR_PASSWORD`
+其中 `GHCR_PULL_*` 仅用于短期兼容和回退预案；在确认 ACR 链路稳定后可以删除。
 
 ## 八、手动发布与回滚
 
