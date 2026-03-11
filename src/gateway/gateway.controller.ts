@@ -204,4 +204,29 @@ export class GatewayController {
       userIdType: userIdType || 'open_id',
     });
   }
+
+  @Post('calendar/events/search')
+  searchCalendarEvents(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      pageSize?: number;
+      pageToken?: string;
+      startTime?: string;
+      endTime?: string;
+      userIdType?: string;
+      timezone?: string;
+    },
+  ) {
+    return this.gatewayService.searchCalendarEvents(body.userOpenId, {
+      query: body.query,
+      pageSize: body.pageSize || 20,
+      pageToken: body.pageToken,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      userIdType: body.userIdType || 'open_id',
+      timezone: body.timezone || 'Asia/Shanghai',
+    });
+  }
 }

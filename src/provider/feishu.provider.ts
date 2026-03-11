@@ -502,6 +502,60 @@ export class FeishuProvider implements OAuthProvider {
     };
   }
 
+  async searchCalendarEvents(
+    userAccessToken: string,
+    calendarId: string,
+    input: {
+      query: string;
+      startTime?: string;
+      endTime?: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+      timezone?: string;
+    },
+  ) {
+    const timezone = input.timezone || 'Asia/Shanghai';
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: `/open-apis/calendar/v4/calendars/${calendarId}/events/search`,
+      params: {
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+        user_id_type: input.userIdType,
+      },
+      data: {
+        query: input.query,
+        filter: {
+          start_time: input.startTime
+            ? {
+                timestamp: input.startTime,
+                timezone,
+              }
+            : undefined,
+          end_time: input.endTime
+            ? {
+                timestamp: input.endTime,
+                timezone,
+              }
+            : undefined,
+        },
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
   private async fetchAppAccessToken(): Promise<string> {
     const response = await axios.post<{ code: number; app_access_token?: string; msg?: string }>(
       `${this.baseUrl}/open-apis/auth/v3/app_access_token/internal`,

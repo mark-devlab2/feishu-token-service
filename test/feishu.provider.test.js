@@ -440,6 +440,58 @@ test('listCalendarEvents gets calendar events endpoint', async () => {
   assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\?/);
 });
 
+test('searchCalendarEvents posts calendar events search endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                event_id: 'evt_2',
+                summary: 'GHCR 部署评审',
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchCalendarEvents('token', 'cal_primary', {
+        query: 'GHCR',
+        startTime: '1760000000',
+        endTime: '1760086399',
+        pageSize: 10,
+        userIdType: 'open_id',
+        timezone: 'Asia/Shanghai',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            event_id: 'evt_2',
+            summary: 'GHCR 部署评审',
+          },
+        ],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\/search\?/);
+  assert.equal(calls[0].data.query, 'GHCR');
+  assert.equal(calls[0].data.filter.start_time.timestamp, '1760000000');
+  assert.equal(calls[0].data.filter.end_time.timestamp, '1760086399');
+});
+
 test('maps axios 403 errors to permission denied', async () => {
   const provider = makeProvider('offline_access');
 

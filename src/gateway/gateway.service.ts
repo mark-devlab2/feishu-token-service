@@ -78,6 +78,16 @@ type CalendarEventListInput = {
   userIdType?: string;
 };
 
+type CalendarEventSearchInput = {
+  query: string;
+  pageSize?: number;
+  pageToken?: string;
+  startTime?: string;
+  endTime?: string;
+  userIdType?: string;
+  timezone?: string;
+};
+
 @Injectable()
 export class GatewayService {
   constructor(
@@ -270,6 +280,31 @@ export class GatewayService {
         resourceType: 'calendar.events.list',
         calendarId: calendar.calendar_id,
         calendarSummary: calendar.summary || calendar.summary_alias || '',
+      },
+      data,
+    };
+  }
+
+  async searchCalendarEvents(userOpenId: string, input: CalendarEventSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const calendar = await this.provider.getPrimaryCalendar(accessToken, {
+      userIdType: input.userIdType,
+    });
+
+    if (!calendar.calendar_id) {
+      throw new BadGatewayException('feishu upstream error');
+    }
+
+    const data = await this.provider.searchCalendarEvents(accessToken, calendar.calendar_id, input);
+    return {
+      provider: 'feishu',
+      capability: 'calendar.events.search',
+      userOpenId,
+      source: {
+        resourceType: 'calendar.events.search',
+        calendarId: calendar.calendar_id,
+        calendarSummary: calendar.summary || calendar.summary_alias || '',
+        query: input.query,
       },
       data,
     };
