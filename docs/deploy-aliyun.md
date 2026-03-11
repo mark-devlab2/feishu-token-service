@@ -20,18 +20,24 @@
 
 ## 二、标准发布流程
 
-1. 向 `main` push 代码
-2. GitHub Actions 读取 `.deploy/build.yaml`
-3. 运行 `npm test`
-4. 构建并推送：
+1. Pull Request 先运行 `Validate Aliyun Release Contract`
+2. 向 `main` push 代码
+3. GitHub Actions 读取 `.deploy/build.yaml`
+4. 运行 `npm test`
+5. 构建并推送：
    - `ghcr.io/mark-devlab2/feishu-token-service-api:sha-<gitsha>`
    - `ghcr.io/mark-devlab2/feishu-token-service-admin-web:sha-<gitsha>`
-5. GitHub Actions SSH 到阿里云
-6. 阿里云服务器拉取平台仓并执行：
+6. GitHub Actions SSH 到阿里云
+7. 阿里云服务器拉取平台仓并执行：
    - `docker compose pull`
    - `docker compose up -d`
    - `docker compose exec -T api npx prisma db push`（`api/full`）
    - 健康检查
+
+当前服务仓保留两条标准 workflow：
+
+- `.github/workflows/validate.yml`
+- `.github/workflows/release.yml`
 
 ## 三、远端目录
 
