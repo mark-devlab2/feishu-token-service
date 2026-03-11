@@ -9,9 +9,9 @@ permissions:
 
 jobs:
   validate:
-    uses: mark-devlab2/aliyun-deploy-platform/.github/workflows/validate-service.yml@main
+    uses: mark-devlab2/aliyun-deploy-platform/.github/workflows/validate-service.yml@v1
     with:
       build_config_path: .deploy/build.yaml
       platform_repo: mark-devlab2/aliyun-deploy-platform
-      platform_ref: main
+      platform_ref: v1
     secrets: inherit
