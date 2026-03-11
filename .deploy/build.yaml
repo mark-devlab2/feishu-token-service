@@ -31,6 +31,6 @@
   ],
   "deploy": {
     "defaultTarget": "full",
-    "productionRegistry": "ghcr"
+    "productionRegistry": "acr"
   }
 }
