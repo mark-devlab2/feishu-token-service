@@ -2,9 +2,9 @@
   "serviceId": "feishu-token-service",
   "registries": {
     "acr": {
-      "host": "registry.cn-beijing.aliyuncs.com",
-      "namespace": "mark-devlab2",
-      "enabled": false
+      "host": "crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com",
+      "namespace": "himark",
+      "enabled": true
     },
     "ghcr": {
       "host": "ghcr.io",
