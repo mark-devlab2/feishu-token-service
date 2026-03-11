@@ -1,12 +1,15 @@
 # 阿里云部署说明
 
-本文档描述 `feishu-token-service` 的标准生产部署形态，已经从“服务器源码仓 + 远端 build”切换为“GitHub Actions + GHCR + 服务器 pull 镜像重启”。
+本文档描述 `feishu-token-service` 的标准生产部署形态，已经从“服务器源码仓 + 远端 build”切换为“GitHub Actions 构建 + 镜像仓 + 服务器 pull 镜像重启”。
+
+当前现网为了兼容已经跑通的生产链路，仍以 `GHCR` 为生产镜像源；平台已经具备 `ACR-first` 能力，待配置 `ACR_USERNAME` / `ACR_PASSWORD` 后，把 `.deploy/build.yaml` 和平台仓 `deploy.yaml` 的 `productionRegistry` 切到 `acr` 即可。
 
 ## 一、职责边界
 
 - 服务仓 `feishu-token-service`
   - 保留 Dockerfile、测试命令、`.deploy/build.yaml`
   - `push main` 触发发布
+  - 默认按公开仓维护
 
 - 平台仓 `aliyun-deploy-platform`
   - 承载 reusable workflows
@@ -23,9 +26,10 @@
 1. 向 `main` push 代码
 2. GitHub Actions 读取 `.deploy/build.yaml`
 3. 运行 `npm test`
-4. 构建并推送：
-   - `ghcr.io/mark-devlab2/feishu-token-service-api:sha-<gitsha>`
-   - `ghcr.io/mark-devlab2/feishu-token-service-admin-web:sha-<gitsha>`
+4. 构建并推送镜像：
+   - 当前现网兼容：`ghcr.io/mark-devlab2/feishu-token-service-api:sha-<gitsha>`
+   - 当前现网兼容：`ghcr.io/mark-devlab2/feishu-token-service-admin-web:sha-<gitsha>`
+   - 计划生产主路径：`registry.cn-beijing.aliyuncs.com/mark-devlab2/feishu-token-service-*:sha-<gitsha>`
 5. GitHub Actions SSH 到阿里云
 6. 阿里云服务器拉取平台仓并执行：
    - `docker compose pull`
@@ -122,7 +126,7 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 
 ## 七、GitHub Secrets
 
-服务仓需要以下 secrets 才能自动部署：
+当前现网兼容阶段需要以下 secrets 才能自动部署：
 
 - `ALIYUN_HOST`
 - `ALIYUN_SSH_USER`
@@ -136,6 +140,14 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 - `ALIYUN_SSH_KNOWN_HOSTS`
 - `PLATFORM_GIT_URL`
 - `REMOTE_PLATFORM_DIR`
+
+切换到 ACR-first 后，Secrets 最小集合应收敛为：
+
+- `ALIYUN_HOST`
+- `ALIYUN_SSH_USER`
+- `ALIYUN_SSH_PRIVATE_KEY`
+- `ACR_USERNAME`
+- `ACR_PASSWORD`
 
 ## 八、手动发布与回滚
 
@@ -165,3 +177,14 @@ deploy-feishu-token-service.sh --target full --image-tag sha-<gitsha>
 3. `/admin-api/session/me` 是否仍返回当前超管
 4. `/auth/feishu/callback` 是否仍可用
 5. Feishu personal auth、drive root list、docs/wiki/minutes/messages 是否继续正常
+
+## 十、公开仓说明
+
+本仓库默认按公开仓维护：
+
+- `validate.yml` 只跑 `pull_request`
+- `validate.yml` 不继承 deploy secrets
+- 不使用 `pull_request_target`
+- 不使用 self-hosted runner
+
+只有承载主机拓扑、运行时配置和运维恢复逻辑的仓库才继续保持私有，例如 `openclaw-main-config`

@@ -1,8 +1,16 @@
 {
   "serviceId": "feishu-token-service",
-  "registry": {
-    "host": "ghcr.io",
-    "owner": "mark-devlab2"
+  "registries": {
+    "acr": {
+      "host": "registry.cn-beijing.aliyuncs.com",
+      "namespace": "mark-devlab2",
+      "enabled": false
+    },
+    "ghcr": {
+      "host": "ghcr.io",
+      "namespace": "mark-devlab2",
+      "enabled": true
+    }
   },
   "test": {
     "run": "npm test"
@@ -22,6 +30,7 @@
     }
   ],
   "deploy": {
-    "defaultTarget": "full"
+    "defaultTarget": "full",
+    "productionRegistry": "ghcr"
   }
 }
