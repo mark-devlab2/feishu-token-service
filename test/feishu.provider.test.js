@@ -114,6 +114,134 @@ test('uses built-in default scopes when env scopes are empty', () => {
 
   assert.equal(provider.defaultScopes().includes('docs:document.content:read'), true);
   assert.equal(provider.defaultScopes().includes('minutes:minutes.basic:read'), true);
+  assert.equal(provider.defaultScopes().includes('task:task:read'), true);
+  assert.equal(provider.defaultScopes().includes('task:task:write'), true);
+});
+
+test('searchMessages posts to search-v2 message endpoint', async () => {
+  const provider = makeProvider('offline_access,search:message');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: ['om_1'],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchMessages('token', {
+        query: 'GHCR',
+        pageSize: 10,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: ['om_1'],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/search\/v2\/message\?/);
+  assert.equal(calls[0].data.query, 'GHCR');
+});
+
+test('listTasks gets user task list endpoint', async () => {
+  const provider = makeProvider('offline_access,task:task:read');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                guid: 'task-1',
+                summary: 'review deploy',
+                completed: false,
+              },
+            ],
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.listTasks('token', {
+        type: 'my_tasks',
+        pageSize: 20,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            guid: 'task-1',
+            summary: 'review deploy',
+            description: '',
+            completed: false,
+            due: null,
+          },
+        ],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'GET');
+  assert.match(calls[0].url, /\/open-apis\/task\/v2\/tasks\?/);
+});
+
+test('createTask posts to task endpoint', async () => {
+  const provider = makeProvider('offline_access,task:task:write');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            task: {
+              guid: 'task-2',
+              summary: 'create task',
+            },
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.createTask('token', {
+        summary: 'create task',
+        description: 'create task',
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        task: {
+          guid: 'task-2',
+          summary: 'create task',
+        },
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/task\/v2\/tasks\?/);
+  assert.equal(calls[0].data.summary, 'create task');
 });
 
 test('maps axios 403 errors to permission denied', async () => {

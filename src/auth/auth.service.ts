@@ -1,13 +1,19 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { AuthorizationKind, AuthorizationStatus } from '@prisma/client';
 import { AlertService } from '../alert/alert.service';
 import { CryptoService } from '../common/services/crypto.service';
 import { PrismaService } from '../common/services/prisma.service';
 import { DirectoryService } from '../directory/directory.service';
 import { FeishuProvider } from '../provider/feishu.provider';
+import {
+  notifyOpenClawPendingIntentResume,
+  parseOpenClawPendingIntentResumeContext,
+} from './openclaw-return-context';
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly provider: FeishuProvider,
@@ -183,6 +189,27 @@ export class AuthService {
         where: { id: session.id },
         data: { status: 'completed', completedAt: new Date() },
       });
+
+      const resumeContext = parseOpenClawPendingIntentResumeContext(session.returnContext);
+      if (resumeContext) {
+        try {
+          await notifyOpenClawPendingIntentResume(resumeContext, {
+            state: session.state,
+            provider: 'feishu',
+            returnContext: session.returnContext,
+          });
+        } catch (error) {
+          this.logger.warn(
+            JSON.stringify({
+              event: 'openclaw_pending_intent_resume_failed',
+              state: session.state,
+              pendingIntentId: resumeContext.pendingIntentId,
+              resumeUrl: resumeContext.resumeUrl,
+              error: error instanceof Error ? error.message : String(error),
+            }),
+          );
+        }
+      }
 
       return {
         success: true,
