@@ -155,6 +155,59 @@ test('searchMessages posts to search-v2 message endpoint', async () => {
   assert.equal(calls[0].data.query, 'GHCR');
 });
 
+test('searchDocuments posts to suite docs search endpoint', async () => {
+  const provider = makeProvider('offline_access,drive:drive:readonly');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            docs_entities: [
+              {
+                docs_token: 'doccn123',
+                docs_type: 'docx',
+                docs_name: 'GHCR 部署方案',
+                owner_name: 'Mark',
+                url: 'https://example.com/doccn123',
+              },
+            ],
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchDocuments('token', {
+        query: 'GHCR',
+        count: 10,
+        offset: 0,
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            docs_token: 'doccn123',
+            docs_type: 'docx',
+            docs_name: 'GHCR 部署方案',
+            owner_name: 'Mark',
+            url: 'https://example.com/doccn123',
+          },
+        ],
+        count: 10,
+        offset: 0,
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/suite\/docs-api\/search\/object$/);
+  assert.equal(calls[0].data.search_key, 'GHCR');
+});
+
 test('searchApps posts to search-v2 app endpoint', async () => {
   const provider = makeProvider('offline_access');
   const calls = [];

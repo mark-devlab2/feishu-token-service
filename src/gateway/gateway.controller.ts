@@ -94,6 +94,29 @@ export class GatewayController {
     });
   }
 
+  @Post('search/documents')
+  searchDocuments(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      count?: number;
+      offset?: number;
+      ownerIds?: string[];
+      chatIds?: string[];
+      docsTypes?: string[];
+    },
+  ) {
+    return this.gatewayService.searchDocuments(body.userOpenId, {
+      query: body.query,
+      count: body.count || 10,
+      offset: body.offset || 0,
+      ownerIds: body.ownerIds,
+      chatIds: body.chatIds,
+      docsTypes: body.docsTypes,
+    });
+  }
+
   @Post('search/apps')
   searchApps(
     @Body()

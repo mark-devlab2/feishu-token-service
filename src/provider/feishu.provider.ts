@@ -246,6 +246,47 @@ export class FeishuProvider implements OAuthProvider {
     };
   }
 
+  async searchDocuments(
+    userAccessToken: string,
+    input: {
+      query: string;
+      count?: number;
+      offset?: number;
+      ownerIds?: string[];
+      chatIds?: string[];
+      docsTypes?: string[];
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/suite/docs-api/search/object',
+      data: {
+        search_key: input.query,
+        count: input.count,
+        offset: input.offset,
+        owner_ids: input.ownerIds,
+        chat_ids: input.chatIds,
+        docs_types: input.docsTypes,
+      },
+    });
+
+    const payload = (data || {}) as {
+      docs_entities?: Array<Record<string, unknown>>;
+      items?: Array<Record<string, unknown>>;
+    };
+
+    const items = payload.docs_entities || payload.items || [];
+    const count = input.count || 10;
+    const offset = input.offset || 0;
+
+    return {
+      items,
+      count,
+      offset,
+      has_more: items.length >= count && offset + count < 200,
+    };
+  }
+
   async searchApps(
     userAccessToken: string,
     input: {

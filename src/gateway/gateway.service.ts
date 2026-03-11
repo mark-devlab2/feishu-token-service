@@ -36,6 +36,15 @@ type AppSearchInput = {
   userIdType?: string;
 };
 
+type DocumentSearchInput = {
+  query: string;
+  count?: number;
+  offset?: number;
+  ownerIds?: string[];
+  chatIds?: string[];
+  docsTypes?: string[];
+};
+
 type TaskListInput = {
   completed?: boolean;
   pageSize?: number;
@@ -168,6 +177,21 @@ export class GatewayService {
       userOpenId,
       source: {
         resourceType: 'messages.search',
+        query: input.query,
+      },
+      data,
+    };
+  }
+
+  async searchDocuments(userOpenId: string, input: DocumentSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.searchDocuments(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'documents.search',
+      userOpenId,
+      source: {
+        resourceType: 'documents.search',
         query: input.query,
       },
       data,
