@@ -94,6 +94,48 @@ export class GatewayController {
     });
   }
 
+  @Post('search/documents')
+  searchDocuments(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      count?: number;
+      offset?: number;
+      ownerIds?: string[];
+      chatIds?: string[];
+      docsTypes?: string[];
+    },
+  ) {
+    return this.gatewayService.searchDocuments(body.userOpenId, {
+      query: body.query,
+      count: body.count || 10,
+      offset: body.offset || 0,
+      ownerIds: body.ownerIds,
+      chatIds: body.chatIds,
+      docsTypes: body.docsTypes,
+    });
+  }
+
+  @Post('search/apps')
+  searchApps(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    return this.gatewayService.searchApps(body.userOpenId, {
+      query: body.query,
+      pageSize: body.pageSize || 20,
+      pageToken: body.pageToken,
+      userIdType: body.userIdType || 'open_id',
+    });
+  }
+
   @Get('tasks')
   listTasks(
     @Query('user_open_id') userOpenId: string,
@@ -140,6 +182,51 @@ export class GatewayController {
       clientToken: body.clientToken,
       members: body.members,
       userIdType: body.userIdType || 'open_id',
+    });
+  }
+
+  @Get('calendar/events')
+  listCalendarEvents(
+    @Query('user_open_id') userOpenId: string,
+    @Query('start_time') startTime?: string,
+    @Query('end_time') endTime?: string,
+    @Query('page_size') pageSize?: string,
+    @Query('page_token') pageToken?: string,
+    @Query('anchor_time') anchorTime?: string,
+    @Query('user_id_type') userIdType?: string,
+  ) {
+    return this.gatewayService.listCalendarEvents(userOpenId, {
+      startTime,
+      endTime,
+      pageSize: pageSize ? Number(pageSize) : 20,
+      pageToken,
+      anchorTime,
+      userIdType: userIdType || 'open_id',
+    });
+  }
+
+  @Post('calendar/events/search')
+  searchCalendarEvents(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      startTime?: string;
+      endTime?: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+      timezone?: string;
+    },
+  ) {
+    return this.gatewayService.searchCalendarEvents(body.userOpenId, {
+      query: body.query,
+      startTime: body.startTime,
+      endTime: body.endTime,
+      pageSize: body.pageSize || 20,
+      pageToken: body.pageToken,
+      userIdType: body.userIdType || 'open_id',
+      timezone: body.timezone || 'Asia/Shanghai',
     });
   }
 }

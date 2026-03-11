@@ -246,6 +246,82 @@ export class FeishuProvider implements OAuthProvider {
     };
   }
 
+  async searchDocuments(
+    userAccessToken: string,
+    input: {
+      query: string;
+      count?: number;
+      offset?: number;
+      ownerIds?: string[];
+      chatIds?: string[];
+      docsTypes?: string[];
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/suite/docs-api/search/object',
+      data: {
+        search_key: input.query,
+        count: input.count,
+        offset: input.offset,
+        owner_ids: input.ownerIds,
+        chat_ids: input.chatIds,
+        docs_types: input.docsTypes,
+      },
+    });
+
+    const payload = (data || {}) as {
+      docs_entities?: Array<Record<string, unknown>>;
+      items?: Array<Record<string, unknown>>;
+    };
+
+    const items = payload.docs_entities || payload.items || [];
+    const count = input.count || 10;
+    const offset = input.offset || 0;
+
+    return {
+      items,
+      count,
+      offset,
+      has_more: items.length >= count && offset + count < 200,
+    };
+  }
+
+  async searchApps(
+    userAccessToken: string,
+    input: {
+      query: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/search/v2/app',
+      params: {
+        user_id_type: input.userIdType,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+      },
+      data: {
+        query: input.query,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
   async getMessage(userAccessToken: string, messageId: string) {
     return this.requestWithUserAccessToken(userAccessToken, {
       path: `/open-apis/im/v1/messages/${messageId}`,
@@ -351,6 +427,132 @@ export class FeishuProvider implements OAuthProvider {
 
     return {
       task: payload.task || null,
+    };
+  }
+
+  async getPrimaryCalendar(
+    userAccessToken: string,
+    input: {
+      userIdType?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/calendar/v4/calendars/primary',
+      params: {
+        user_id_type: input.userIdType,
+      },
+    });
+
+    const payload = (data || {}) as {
+      calendar?: {
+        calendar_id?: string;
+        summary?: string;
+        summary_alias?: string;
+      };
+      calendar_id?: string;
+      summary?: string;
+      summary_alias?: string;
+    };
+
+    const calendar = payload.calendar || payload;
+    return {
+      calendar_id: calendar?.calendar_id || '',
+      summary: calendar?.summary || '',
+      summary_alias: calendar?.summary_alias || '',
+    };
+  }
+
+  async listCalendarEvents(
+    userAccessToken: string,
+    calendarId: string,
+    input: {
+      pageSize?: number;
+      pageToken?: string;
+      anchorTime?: string;
+      startTime?: string;
+      endTime?: string;
+      userIdType?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      path: `/open-apis/calendar/v4/calendars/${calendarId}/events`,
+      params: {
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+        anchor_time: input.anchorTime,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        user_id_type: input.userIdType,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+      sync_token?: string;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+      sync_token: payload.sync_token || '',
+    };
+  }
+
+  async searchCalendarEvents(
+    userAccessToken: string,
+    calendarId: string,
+    input: {
+      query: string;
+      startTime?: string;
+      endTime?: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+      timezone?: string;
+    },
+  ) {
+    const timezone = input.timezone || 'Asia/Shanghai';
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: `/open-apis/calendar/v4/calendars/${calendarId}/events/search`,
+      params: {
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+        user_id_type: input.userIdType,
+      },
+      data: {
+        query: input.query,
+        filter: {
+          start_time: input.startTime
+            ? {
+                timestamp: input.startTime,
+                timezone,
+              }
+            : undefined,
+          end_time: input.endTime
+            ? {
+                timestamp: input.endTime,
+                timezone,
+              }
+            : undefined,
+        },
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
     };
   }
 

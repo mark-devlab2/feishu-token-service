@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { FeishuProvider } from '../provider/feishu.provider';
 import { TokenService } from '../token/token.service';
 
@@ -29,6 +29,22 @@ type MessageSearchInput = {
   userIdType?: string;
 };
 
+type DocumentSearchInput = {
+  query: string;
+  count?: number;
+  offset?: number;
+  ownerIds?: string[];
+  chatIds?: string[];
+  docsTypes?: string[];
+};
+
+type AppSearchInput = {
+  query: string;
+  pageSize?: number;
+  pageToken?: string;
+  userIdType?: string;
+};
+
 type TaskListInput = {
   completed?: boolean;
   pageSize?: number;
@@ -51,6 +67,25 @@ type TaskCreateInput = {
   clientToken?: string;
   members?: Array<Record<string, unknown>>;
   userIdType?: string;
+};
+
+type CalendarEventListInput = {
+  pageSize?: number;
+  pageToken?: string;
+  anchorTime?: string;
+  startTime?: string;
+  endTime?: string;
+  userIdType?: string;
+};
+
+type CalendarEventSearchInput = {
+  query: string;
+  startTime?: string;
+  endTime?: string;
+  pageSize?: number;
+  pageToken?: string;
+  userIdType?: string;
+  timezone?: string;
 };
 
 @Injectable()
@@ -167,6 +202,36 @@ export class GatewayService {
     };
   }
 
+  async searchDocuments(userOpenId: string, input: DocumentSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.searchDocuments(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'documents.search',
+      userOpenId,
+      source: {
+        resourceType: 'documents.search',
+        query: input.query,
+      },
+      data,
+    };
+  }
+
+  async searchApps(userOpenId: string, input: AppSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const data = await this.provider.searchApps(accessToken, input);
+    return {
+      provider: 'feishu',
+      capability: 'apps.search',
+      userOpenId,
+      source: {
+        resourceType: 'apps.search',
+        query: input.query,
+      },
+      data,
+    };
+  }
+
   async listTasks(userOpenId: string, input: TaskListInput) {
     const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
     const data = await this.provider.listTasks(accessToken, input);
@@ -191,6 +256,55 @@ export class GatewayService {
       userOpenId,
       source: {
         resourceType: 'tasks.create',
+      },
+      data,
+    };
+  }
+
+  async listCalendarEvents(userOpenId: string, input: CalendarEventListInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const calendar = await this.provider.getPrimaryCalendar(accessToken, {
+      userIdType: input.userIdType,
+    });
+
+    if (!calendar.calendar_id) {
+      throw new BadGatewayException('feishu upstream error');
+    }
+
+    const data = await this.provider.listCalendarEvents(accessToken, calendar.calendar_id, input);
+    return {
+      provider: 'feishu',
+      capability: 'calendar.events.list',
+      userOpenId,
+      source: {
+        resourceType: 'calendar.events.list',
+        calendarId: calendar.calendar_id,
+        calendarSummary: calendar.summary || calendar.summary_alias || '',
+      },
+      data,
+    };
+  }
+
+  async searchCalendarEvents(userOpenId: string, input: CalendarEventSearchInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const calendar = await this.provider.getPrimaryCalendar(accessToken, {
+      userIdType: input.userIdType,
+    });
+
+    if (!calendar.calendar_id) {
+      throw new BadGatewayException('feishu upstream error');
+    }
+
+    const data = await this.provider.searchCalendarEvents(accessToken, calendar.calendar_id, input);
+    return {
+      provider: 'feishu',
+      capability: 'calendar.events.search',
+      userOpenId,
+      source: {
+        resourceType: 'calendar.events.search',
+        calendarId: calendar.calendar_id,
+        calendarSummary: calendar.summary || calendar.summary_alias || '',
+        query: input.query,
       },
       data,
     };

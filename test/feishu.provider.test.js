@@ -155,6 +155,106 @@ test('searchMessages posts to search-v2 message endpoint', async () => {
   assert.equal(calls[0].data.query, 'GHCR');
 });
 
+test('searchDocuments posts to suite docs search endpoint', async () => {
+  const provider = makeProvider('offline_access,drive:drive:readonly');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            docs_entities: [
+              {
+                docs_token: 'doccn123',
+                docs_type: 'docx',
+                docs_name: 'GHCR 部署方案',
+                owner_name: 'Mark',
+                url: 'https://example.com/doccn123',
+              },
+            ],
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchDocuments('token', {
+        query: 'GHCR',
+        count: 10,
+        offset: 0,
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            docs_token: 'doccn123',
+            docs_type: 'docx',
+            docs_name: 'GHCR 部署方案',
+            owner_name: 'Mark',
+            url: 'https://example.com/doccn123',
+          },
+        ],
+        count: 10,
+        offset: 0,
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/suite\/docs-api\/search\/object$/);
+  assert.equal(calls[0].data.search_key, 'GHCR');
+});
+
+test('searchApps posts to search-v2 app endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                app_id: 'cli_x',
+                app_name: '审批助手',
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchApps('token', {
+        query: '审批',
+        pageSize: 10,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            app_id: 'cli_x',
+            app_name: '审批助手',
+          },
+        ],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/search\/v2\/app\?/);
+  assert.equal(calls[0].data.query, '审批');
+});
+
 test('listTasks gets user task list endpoint', async () => {
   const provider = makeProvider('offline_access,task:task:read');
   const calls = [];
@@ -242,6 +342,151 @@ test('createTask posts to task endpoint', async () => {
   assert.equal(calls[0].method, 'POST');
   assert.match(calls[0].url, /\/open-apis\/task\/v2\/tasks\?/);
   assert.equal(calls[0].data.summary, 'create task');
+});
+
+test('getPrimaryCalendar posts to calendar primary endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            calendar: {
+              calendar_id: 'cal_primary',
+              summary: '我的主日历',
+            },
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.getPrimaryCalendar('token', {
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        calendar_id: 'cal_primary',
+        summary: '我的主日历',
+        summary_alias: '',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/primary\?/);
+});
+
+test('listCalendarEvents gets calendar events endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                event_id: 'evt_1',
+                summary: '部署评审',
+                start_time: {
+                  timestamp: '1760000000',
+                },
+                end_time: {
+                  timestamp: '1760003600',
+                },
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.listCalendarEvents('token', 'cal_primary', {
+        startTime: '1760000000',
+        endTime: '1760086399',
+        pageSize: 20,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            event_id: 'evt_1',
+            summary: '部署评审',
+            start_time: {
+              timestamp: '1760000000',
+            },
+            end_time: {
+              timestamp: '1760003600',
+            },
+          },
+        ],
+        page_token: '',
+        has_more: false,
+        sync_token: '',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'GET');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\?/);
+});
+
+test('searchCalendarEvents posts to calendar events search endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                event_id: 'evt_2',
+                summary: '部署复盘',
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchCalendarEvents('token', 'cal_primary', {
+        query: '部署',
+        startTime: '1760000000',
+        endTime: '1760086399',
+        pageSize: 10,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            event_id: 'evt_2',
+            summary: '部署复盘',
+          },
+        ],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\/search\?/);
+  assert.equal(calls[0].data.query, '部署');
 });
 
 test('maps axios 403 errors to permission denied', async () => {
