@@ -2,7 +2,7 @@
 
 本文档描述 `feishu-token-service` 的标准生产部署形态，已经从“服务器源码仓 + 远端 build”切换为“GitHub Actions 构建 + 镜像仓 + 服务器 pull 镜像重启”。
 
-当前现网主路径已经切到 `ACR-first`：GitHub Actions 构建镜像并推送到 `crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/*`，阿里云服务器只从 `ACR` pull。`GHCR` 继续保留为兼容镜像源，便于短期回退和比对，但不再是生产默认拉取路径。
+当前现网主路径已经切到 `ACR-first`：GitHub Actions 构建镜像并推送到 `crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/*`，阿里云服务器只从 `ACR` pull。`GHCR` 不再作为默认镜像输出；只有显式启用兼容发布时才会再次参与构建与分发。
 
 ## 一、职责边界
 
@@ -29,7 +29,6 @@
 4. 构建并推送镜像：
    - 生产主路径：`crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/feishu-token-service-api:sha-<gitsha>`
    - 生产主路径：`crpi-vbmaa8d6ek5k7rjt.cn-beijing.personal.cr.aliyuncs.com/himark/feishu-token-service-admin-web:sha-<gitsha>`
-   - 兼容镜像源：`ghcr.io/mark-devlab2/feishu-token-service-*:sha-<gitsha>`
 5. GitHub Actions SSH 到阿里云
 6. 阿里云服务器拉取平台仓并执行：
    - `docker compose pull`
@@ -140,10 +139,8 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 - `ALIYUN_SSH_KNOWN_HOSTS`
 - `PLATFORM_GIT_URL`
 - `REMOTE_PLATFORM_DIR`
-- `GHCR_PULL_USERNAME`
-- `GHCR_PULL_TOKEN`
 
-其中 `GHCR_PULL_*` 仅用于短期兼容和回退预案；在确认 ACR 链路稳定后可以删除。
+如果后续需要临时恢复 GHCR 兼容发布，再额外配置 `GHCR_PULL_USERNAME` / `GHCR_PULL_TOKEN` 并在 `.deploy/build.yaml` 中显式启用 `ghcr`。
 
 ## 八、手动发布与回滚
 

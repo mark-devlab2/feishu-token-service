@@ -9,7 +9,7 @@
     "ghcr": {
       "host": "ghcr.io",
       "namespace": "mark-devlab2",
-      "enabled": true
+      "enabled": false
     }
   },
   "test": {
