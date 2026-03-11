@@ -14,4 +14,3 @@ jobs:
       build_config_path: .deploy/build.yaml
       platform_repo: mark-devlab2/aliyun-deploy-platform
       platform_ref: v1
-    secrets: inherit
