@@ -246,6 +246,41 @@ export class FeishuProvider implements OAuthProvider {
     };
   }
 
+  async searchApps(
+    userAccessToken: string,
+    input: {
+      query: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/search/v2/app',
+      params: {
+        user_id_type: input.userIdType,
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+      },
+      data: {
+        query: input.query,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+    };
+  }
+
   async getMessage(userAccessToken: string, messageId: string) {
     return this.requestWithUserAccessToken(userAccessToken, {
       path: `/open-apis/im/v1/messages/${messageId}`,

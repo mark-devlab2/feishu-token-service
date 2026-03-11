@@ -94,6 +94,25 @@ export class GatewayController {
     });
   }
 
+  @Post('search/apps')
+  searchApps(
+    @Body()
+    body: {
+      userOpenId: string;
+      query: string;
+      pageSize?: number;
+      pageToken?: string;
+      userIdType?: string;
+    },
+  ) {
+    return this.gatewayService.searchApps(body.userOpenId, {
+      query: body.query,
+      pageSize: body.pageSize || 20,
+      pageToken: body.pageToken,
+      userIdType: body.userIdType || 'open_id',
+    });
+  }
+
   @Get('tasks')
   listTasks(
     @Query('user_open_id') userOpenId: string,

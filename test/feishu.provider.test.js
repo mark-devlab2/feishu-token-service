@@ -155,6 +155,53 @@ test('searchMessages posts to search-v2 message endpoint', async () => {
   assert.equal(calls[0].data.query, 'GHCR');
 });
 
+test('searchApps posts to search-v2 app endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                app_id: 'cli_x',
+                app_name: '审批助手',
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.searchApps('token', {
+        query: '审批',
+        pageSize: 10,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            app_id: 'cli_x',
+            app_name: '审批助手',
+          },
+        ],
+        page_token: '',
+        has_more: false,
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/search\/v2\/app\?/);
+  assert.equal(calls[0].data.query, '审批');
+});
+
 test('listTasks gets user task list endpoint', async () => {
   const provider = makeProvider('offline_access,task:task:read');
   const calls = [];
