@@ -184,4 +184,24 @@ export class GatewayController {
       userIdType: body.userIdType || 'open_id',
     });
   }
+
+  @Get('calendar/events')
+  listCalendarEvents(
+    @Query('user_open_id') userOpenId: string,
+    @Query('page_size') pageSize?: string,
+    @Query('page_token') pageToken?: string,
+    @Query('anchor_time') anchorTime?: string,
+    @Query('start_time') startTime?: string,
+    @Query('end_time') endTime?: string,
+    @Query('user_id_type') userIdType?: string,
+  ) {
+    return this.gatewayService.listCalendarEvents(userOpenId, {
+      pageSize: pageSize ? Number(pageSize) : 20,
+      pageToken,
+      anchorTime,
+      startTime,
+      endTime,
+      userIdType: userIdType || 'open_id',
+    });
+  }
 }

@@ -430,6 +430,78 @@ export class FeishuProvider implements OAuthProvider {
     };
   }
 
+  async getPrimaryCalendar(
+    userAccessToken: string,
+    input: {
+      userIdType?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      method: 'POST',
+      path: '/open-apis/calendar/v4/calendars/primary',
+      params: {
+        user_id_type: input.userIdType,
+      },
+    });
+
+    const payload = (data || {}) as {
+      calendar?: {
+        calendar_id?: string;
+        summary?: string;
+        summary_alias?: string;
+      };
+      calendar_id?: string;
+      summary?: string;
+      summary_alias?: string;
+    };
+
+    const calendar = payload.calendar || payload;
+    return {
+      calendar_id: calendar?.calendar_id || '',
+      summary: calendar?.summary || '',
+      summary_alias: calendar?.summary_alias || '',
+    };
+  }
+
+  async listCalendarEvents(
+    userAccessToken: string,
+    calendarId: string,
+    input: {
+      pageSize?: number;
+      pageToken?: string;
+      anchorTime?: string;
+      startTime?: string;
+      endTime?: string;
+      userIdType?: string;
+    } = {},
+  ) {
+    const data = await this.requestWithUserAccessToken(userAccessToken, {
+      path: `/open-apis/calendar/v4/calendars/${calendarId}/events`,
+      params: {
+        page_size: input.pageSize,
+        page_token: input.pageToken,
+        anchor_time: input.anchorTime,
+        start_time: input.startTime,
+        end_time: input.endTime,
+        user_id_type: input.userIdType,
+      },
+    });
+
+    const payload = (data || {}) as {
+      items?: Array<Record<string, unknown>>;
+      page_token?: string;
+      has_more?: boolean;
+      sync_token?: string;
+    };
+
+    return {
+      items: payload.items || [],
+      page_token: payload.page_token || '',
+      has_more: Boolean(payload.has_more),
+      sync_token: payload.sync_token || '',
+    };
+  }
+
   private async fetchAppAccessToken(): Promise<string> {
     const response = await axios.post<{ code: number; app_access_token?: string; msg?: string }>(
       `${this.baseUrl}/open-apis/auth/v3/app_access_token/internal`,

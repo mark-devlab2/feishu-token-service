@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadGatewayException, Injectable } from '@nestjs/common';
 import { FeishuProvider } from '../provider/feishu.provider';
 import { TokenService } from '../token/token.service';
 
@@ -66,6 +66,15 @@ type TaskCreateInput = {
   };
   clientToken?: string;
   members?: Array<Record<string, unknown>>;
+  userIdType?: string;
+};
+
+type CalendarEventListInput = {
+  pageSize?: number;
+  pageToken?: string;
+  anchorTime?: string;
+  startTime?: string;
+  endTime?: string;
   userIdType?: string;
 };
 
@@ -237,6 +246,30 @@ export class GatewayService {
       userOpenId,
       source: {
         resourceType: 'tasks.create',
+      },
+      data,
+    };
+  }
+
+  async listCalendarEvents(userOpenId: string, input: CalendarEventListInput) {
+    const accessToken = await this.tokenService.getAvailableAccessToken(userOpenId);
+    const calendar = await this.provider.getPrimaryCalendar(accessToken, {
+      userIdType: input.userIdType,
+    });
+
+    if (!calendar.calendar_id) {
+      throw new BadGatewayException('feishu upstream error');
+    }
+
+    const data = await this.provider.listCalendarEvents(accessToken, calendar.calendar_id, input);
+    return {
+      provider: 'feishu',
+      capability: 'calendar.events.list',
+      userOpenId,
+      source: {
+        resourceType: 'calendar.events.list',
+        calendarId: calendar.calendar_id,
+        calendarSummary: calendar.summary || calendar.summary_alias || '',
       },
       data,
     };

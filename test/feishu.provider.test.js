@@ -344,6 +344,102 @@ test('createTask posts to task endpoint', async () => {
   assert.equal(calls[0].data.summary, 'create task');
 });
 
+test('getPrimaryCalendar posts to calendar primary endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            calendar: {
+              calendar_id: 'cal_primary',
+              summary: '我的主日历',
+            },
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.getPrimaryCalendar('token', {
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        calendar_id: 'cal_primary',
+        summary: '我的主日历',
+        summary_alias: '',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'POST');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/primary\?/);
+});
+
+test('listCalendarEvents gets calendar events endpoint', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [
+              {
+                event_id: 'evt_1',
+                summary: '部署评审',
+                start_time: {
+                  timestamp: '1760000000',
+                },
+                end_time: {
+                  timestamp: '1760003600',
+                },
+              },
+            ],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      const result = await provider.listCalendarEvents('token', 'cal_primary', {
+        startTime: '1760000000',
+        endTime: '1760086399',
+        pageSize: 20,
+        userIdType: 'open_id',
+      });
+      assert.deepEqual(result, {
+        items: [
+          {
+            event_id: 'evt_1',
+            summary: '部署评审',
+            start_time: {
+              timestamp: '1760000000',
+            },
+            end_time: {
+              timestamp: '1760003600',
+            },
+          },
+        ],
+        page_token: '',
+        has_more: false,
+        sync_token: '',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].method, 'GET');
+  assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\?/);
+});
+
 test('maps axios 403 errors to permission denied', async () => {
   const provider = makeProvider('offline_access');
 
