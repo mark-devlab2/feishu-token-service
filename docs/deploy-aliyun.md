@@ -140,7 +140,10 @@ aliyun-deploy-platform/services/feishu-token-service/compose.prod.env.example
 - `PLATFORM_GIT_URL`
 - `REMOTE_PLATFORM_DIR`
 
-如果后续需要临时恢复 GHCR 兼容发布，再额外配置 `GHCR_PULL_USERNAME` / `GHCR_PULL_TOKEN` 并在 `.deploy/build.yaml` 中显式启用 `ghcr`。
+如果后续需要临时恢复 GHCR 兼容发布：
+
+- 仅恢复构建输出时，额外配置 `GHCR_PUSH_USERNAME` / `GHCR_PUSH_TOKEN`，并在 `.deploy/build.yaml` 中显式启用 `ghcr`
+- 如果还要把生产镜像源切回 `ghcr`，再额外配置 `GHCR_PULL_USERNAME` / `GHCR_PULL_TOKEN`
 
 ## 八、手动发布与回滚
 
