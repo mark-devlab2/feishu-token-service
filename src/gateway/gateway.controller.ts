@@ -198,7 +198,7 @@ export class GatewayController {
     return this.gatewayService.listCalendarEvents(userOpenId, {
       startTime,
       endTime,
-      pageSize: pageSize ? Number(pageSize) : 20,
+      pageSize: pageSize ? Number(pageSize) : 50,
       pageToken,
       anchorTime,
       userIdType: userIdType || 'open_id',

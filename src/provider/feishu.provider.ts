@@ -450,12 +450,19 @@ export class FeishuProvider implements OAuthProvider {
         summary?: string;
         summary_alias?: string;
       };
+      calendars?: Array<{
+        calendar?: {
+          calendar_id?: string;
+          summary?: string;
+          summary_alias?: string;
+        };
+      }>;
       calendar_id?: string;
       summary?: string;
       summary_alias?: string;
     };
 
-    const calendar = payload.calendar || payload;
+    const calendar = payload.calendar || payload.calendars?.[0]?.calendar || payload;
     return {
       calendar_id: calendar?.calendar_id || '',
       summary: calendar?.summary || '',
@@ -478,7 +485,7 @@ export class FeishuProvider implements OAuthProvider {
     const data = await this.requestWithUserAccessToken(userAccessToken, {
       path: `/open-apis/calendar/v4/calendars/${calendarId}/events`,
       params: {
-        page_size: input.pageSize,
+        page_size: input.pageSize ? Math.max(50, input.pageSize) : 50,
         page_token: input.pageToken,
         anchor_time: input.anchorTime,
         start_time: input.startTime,

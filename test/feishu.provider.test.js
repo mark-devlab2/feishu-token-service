@@ -355,10 +355,14 @@ test('getPrimaryCalendar posts to calendar primary endpoint', async () => {
         data: {
           code: 0,
           data: {
-            calendar: {
-              calendar_id: 'cal_primary',
-              summary: '我的主日历',
-            },
+            calendars: [
+              {
+                calendar: {
+                  calendar_id: 'cal_primary',
+                  summary: '我的主日历',
+                },
+              },
+            ],
           },
         },
       };
@@ -438,6 +442,7 @@ test('listCalendarEvents gets calendar events endpoint', async () => {
   assert.equal(calls.length, 1);
   assert.equal(calls[0].method, 'GET');
   assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\?/);
+  assert.match(calls[0].url, /page_size=50/);
 });
 
 test('searchCalendarEvents posts to calendar events search endpoint', async () => {
