@@ -23,6 +23,28 @@ type FeishuRequestOptions = {
   data?: Record<string, unknown>;
 };
 
+function normalizeUnixSeconds(value?: string): string | undefined {
+  if (!value) {
+    return undefined;
+  }
+
+  const text = String(value).trim();
+  if (!text) {
+    return undefined;
+  }
+
+  if (/^\d+$/.test(text)) {
+    return text;
+  }
+
+  const timestamp = Date.parse(text);
+  if (Number.isNaN(timestamp)) {
+    return text;
+  }
+
+  return String(Math.floor(timestamp / 1000));
+}
+
 const DEFAULT_PERSONAL_SCOPES = [
   'offline_access',
   'contact:user.base:readonly',
@@ -487,9 +509,9 @@ export class FeishuProvider implements OAuthProvider {
       params: {
         page_size: input.pageSize ? Math.max(50, input.pageSize) : 50,
         page_token: input.pageToken,
-        anchor_time: input.anchorTime,
-        start_time: input.startTime,
-        end_time: input.endTime,
+        anchor_time: normalizeUnixSeconds(input.anchorTime),
+        start_time: normalizeUnixSeconds(input.startTime),
+        end_time: normalizeUnixSeconds(input.endTime),
         user_id_type: input.userIdType,
       },
     });
@@ -534,15 +556,15 @@ export class FeishuProvider implements OAuthProvider {
       data: {
         query: input.query,
         filter: {
-          start_time: input.startTime
+          start_time: normalizeUnixSeconds(input.startTime)
             ? {
-                timestamp: input.startTime,
+                timestamp: normalizeUnixSeconds(input.startTime),
                 timezone,
               }
             : undefined,
-          end_time: input.endTime
+          end_time: normalizeUnixSeconds(input.endTime)
             ? {
-                timestamp: input.endTime,
+                timestamp: normalizeUnixSeconds(input.endTime),
                 timezone,
               }
             : undefined,

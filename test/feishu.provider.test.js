@@ -443,6 +443,40 @@ test('listCalendarEvents gets calendar events endpoint', async () => {
   assert.equal(calls[0].method, 'GET');
   assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\?/);
   assert.match(calls[0].url, /page_size=50/);
+  assert.match(calls[0].url, /start_time=1760000000/);
+  assert.match(calls[0].url, /end_time=1760086399/);
+});
+
+test('listCalendarEvents normalizes ISO timestamps to Unix seconds', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      await provider.listCalendarEvents('token', 'cal_primary', {
+        startTime: '2026-03-12T12:00:00+08:00',
+        endTime: '2026-03-12T18:00:00+08:00',
+        pageSize: 50,
+        userIdType: 'open_id',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.match(calls[0].url, /start_time=1773288000/);
+  assert.match(calls[0].url, /end_time=1773309600/);
 });
 
 test('searchCalendarEvents posts to calendar events search endpoint', async () => {
@@ -492,6 +526,41 @@ test('searchCalendarEvents posts to calendar events search endpoint', async () =
   assert.equal(calls[0].method, 'POST');
   assert.match(calls[0].url, /\/open-apis\/calendar\/v4\/calendars\/cal_primary\/events\/search\?/);
   assert.equal(calls[0].data.query, '部署');
+  assert.equal(calls[0].data.filter.start_time.timestamp, '1760000000');
+  assert.equal(calls[0].data.filter.end_time.timestamp, '1760086399');
+});
+
+test('searchCalendarEvents normalizes ISO timestamps to Unix seconds', async () => {
+  const provider = makeProvider('offline_access');
+  const calls = [];
+
+  await withMockedAxiosRequest(
+    async (config) => {
+      calls.push(config);
+      return {
+        data: {
+          code: 0,
+          data: {
+            items: [],
+            has_more: false,
+          },
+        },
+      };
+    },
+    async () => {
+      await provider.searchCalendarEvents('token', 'cal_primary', {
+        query: '部署',
+        startTime: '2026-03-12T12:00:00+08:00',
+        endTime: '2026-03-12T18:00:00+08:00',
+        pageSize: 10,
+        userIdType: 'open_id',
+      });
+    },
+  );
+
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].data.filter.start_time.timestamp, '1773288000');
+  assert.equal(calls[0].data.filter.end_time.timestamp, '1773309600');
 });
 
 test('maps axios 403 errors to permission denied', async () => {
